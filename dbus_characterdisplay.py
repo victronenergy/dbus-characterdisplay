@@ -128,10 +128,9 @@ def roll_screens ():
 	
 	if (print_screen (screens[screen_index])):
 		# On error show next page
-		rotate_screen ()
-	else:
-		# On success recall in 2500ms
-		gobject.timeout_add(2500, roll_screens)
+		roll_screens ()
+
+        return True
 
 
 def print_screen (page):
