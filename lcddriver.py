@@ -10,7 +10,7 @@ LCD_XY = '\033[Lx%dy%d;'
 LCD_BACKLIGHT_ON = '\033[L+'
 LCD_BACKLIGHT_OFF = '\033[L-'
 
-class lcd:
+class Lcd(object):
    #initializes objects and lcd
    def __init__(self):
       self.lcd = os.open(LCD_DEV, os.O_WRONLY)

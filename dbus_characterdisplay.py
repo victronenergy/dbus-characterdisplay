@@ -14,12 +14,10 @@ DISPLAY_COLS = 16
 DISPLAY_ROWS = 2
 
 screens = ['battery', 'solar', 'grid', 'lan_ip', 'wifi_ip']
-screen_index = -99	
+screen_index = -1	
 
-mppt_states = ['off', 'unkown', 'fault', 'bulk', 'absorpt', 'float']
+mppt_states = ['off', 'unknown', 'fault', 'bulk', 'absorpt', 'float']
 
-conn = None	# Gobal dbus connection
-cache = None	# Key value store for dbus values
 lcd = None	# Display handler
 
 class smart_dict(dict):
@@ -35,8 +33,11 @@ class smart_dict(dict):
 	def __setattr__(self, k, v):
 		self[k] = v
 
+# Module-level key-value store for tracked dbus values
+cache = smart_dict()
+
 		
-def unwrap_dbus_value (val):
+def unwrap_dbus_value(val):
 	# Converts D-Bus values back to the original type. For example if val is of type DBus.Double, a float will be returned.
 
 	if isinstance(val, (dbus.Int32, dbus.UInt32, dbus.Byte, dbus.Int16, dbus.UInt16, dbus.UInt32, dbus.Int64, dbus.UInt64)):
@@ -49,7 +50,7 @@ def unwrap_dbus_value (val):
 	return val
 
 
-def get_ipparams (interface):
+def get_ipparams(conn, interface):
 	# Fetch IP params from conmann dbus for given interface (ethernet, wifi)
 
 	ip_params = {}
@@ -68,11 +69,8 @@ def get_ipparams (interface):
 	return ip_params
 					
 
-def update_cache (key, v):
-
-#	print "{}".format (v)
-
-	if isinstance (v, dbus.Dictionary):
+def update_cache(key, v):
+	if isinstance(v, dbus.Dictionary):
 		value = v["Value"]
 	elif isinstance(v, dbus.Array):
 		value = None
@@ -82,29 +80,26 @@ def update_cache (key, v):
 	if isinstance(value, dbus.Array):
 		value = None
 		
-	cache[key] = unwrap_dbus_value (value)
-
-#	print "{} = {}".format(key, value)
+	cache[key] = unwrap_dbus_value(value)
 
 
-def query (service, path):
-
+def query(conn, service, path):
 	try:
 		return conn.call_blocking(service, path, None, "GetValue", '', [])
 	except:
 		return None
 
 
-def track (service, path, target):
+def track(conn, service, path, target):
 
 	# Initialise cache values
-	update_cache (target, query(service, path))
+	update_cache(target, query(conn, service, path))
 
-	if (cache.get(target) is not None):
+	if(cache.get(target) is not None):
 
 		# If there are values on dbus update cache after porperty change
-		conn.add_signal_receiver (
-			partial (update_cache, target),
+		conn.add_signal_receiver(
+			partial(update_cache, target),
 			dbus_interface='com.victronenergy.BusItem',
 			signal_name='PropertiesChanged',
 			path=path,
@@ -112,29 +107,21 @@ def track (service, path, target):
 		)
 	else:
 		# Retry every 10 secs data is available on dbus
-		gobject.timeout_add(10000, track, service, path, target)
+		gobject.timeout_add(10000, partial(track, conn, service, path, target))
 	
 
-def roll_screens ():
-
+def roll_screens(conn):
 	# Iterate through screens array by incrementing screen_index.
-	# Recalls itself every 2500ms by timeout 
 	global screen_index
 
-	if (screen_index in range (0, len (screens) - 1)):
-		screen_index += 1
-	else:
-		screen_index = 0
-	
-	if (print_screen (screens[screen_index])):
+	screen_index = (screen_index + 1) % len(screens)
+	if (print_screen(conn, screens[screen_index])):
 		# On error show next page
-		roll_screens ()
-
+		roll_screens(conn)
         return True
 
 
-def print_screen (page):
-
+def print_screen(conn, page):
 	# Collect data, prepare output and print it on the display
 
 	# Position:  ul  ur   ll  lr  (upper-left, ...)
@@ -161,7 +148,7 @@ def print_screen (page):
 		text[0][0] = "Solar:"
 
 		if (cache["mppt_connected"] is None or cache["mppt_connected"] == 0):
-			update_cache ("mppt_connected", query("com.victronenergy.solarcharger.ttyS1", "/Connected"))
+			update_cache ("mppt_connected", query(conn, "com.victronenergy.solarcharger.ttyS1", "/Connected"))
 		
 		if (cache["mppt_connected"] == 1):
 			if (cache["mppt_state"] is not None):
@@ -184,7 +171,7 @@ def print_screen (page):
 		text[0][0] = "Grid:"
 
 		if (cache["vebus_connected"] is None or cache["vebus_connected"] == 0):
-			update_cache ("vebus_connected", query("com.victronenergy.ttyS3", "/Connected"))
+			update_cache("vebus_connected", query(conn, "com.victronenergy.ttyS3", "/Connected"))
 
 		if (cache["vebus_connected"] == 1):
 			if (cache["grid_available"] is not None):
@@ -209,7 +196,7 @@ def print_screen (page):
 		ip_params = {}
 
 		try:
-			ip_params = get_ipparams (ifdevices[page])
+			ip_params = get_ipparams(conn, ifdevices[page])
 		except:
 			return -1
 
@@ -230,9 +217,9 @@ def print_screen (page):
 			text[1][1] = "Not Connected"
 
 
-	for row in range (0, DISPLAY_ROWS):
-		line = format_line (text[row])
-		lcd.lcd_display_string (line, row + 1)
+	for row in range(0, DISPLAY_ROWS):
+		line = format_line(text[row])
+		lcd.lcd_display_string(line, row + 1)
 	
 		print '|' + line + '|'
 
@@ -241,14 +228,14 @@ def print_screen (page):
 	return 0
 
 	
-def format_line (line):
+def format_line(line):
 
 	if (line and line[0] is not None):
 
 		pad = DISPLAY_COLS - len(line[0])
 		
 		if (pad < 0):
-			return ("{:.{}}").format (line[0], DISPLAY_COLS)
+			return ("{:.{}}").format(line[0], DISPLAY_COLS)
 		elif (len(line[1]) > pad):
 			return ("{}{:.{}}").format(line[0], line[1], pad)
 		else:	
@@ -257,42 +244,37 @@ def format_line (line):
 	return " "*DISPLAY_COLS
 
 
-def main ():
-	DBusGMainLoop (set_as_default=True)
+def main():
+	DBusGMainLoop(set_as_default=True)
 	
-	global conn
-	global cache
 	global lcd
 
 	conn = dbus.SystemBus()	# Initialize dbus connector
-	cache = smart_dict()	# Make cache a smart_dict
-	lcd = lcddriver.lcd()	# Get LCD display handler
+	lcd = lcddriver.Lcd()	# Get LCD display handler
 
 	lcd.lcd_splash() 	# Show spash screen while initialization
 
 	# Track battery values from systemcalc
-	track ("com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
-	track ("com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
-	track ("com.victronenergy.system", "/Dc/Battery/Power", "battery_power")
+	track(conn, "com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
+	track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
+	track(conn, "com.victronenergy.system", "/Dc/Battery/Power", "battery_power")
 
 	# Track solar values from MPPT
-	track ("com.victronenergy.solarcharger.ttyS1", "/Connected", "mppt_connected")
-	track ("com.victronenergy.solarcharger.ttyS1", "/State", "mppt_state")
-	track ("com.victronenergy.solarcharger.ttyS1", "/Yield/Power", "pv_power")
-	track ("com.victronenergy.solarcharger.ttyS1", "/Pv/V", "pv_voltage")
+	track(conn, "com.victronenergy.solarcharger.ttyS1", "/Connected", "mppt_connected")
+	track(conn, "com.victronenergy.solarcharger.ttyS1", "/State", "mppt_state")
+	track(conn, "com.victronenergy.solarcharger.ttyS1", "/Yield/Power", "pv_power")
+	track(conn, "com.victronenergy.solarcharger.ttyS1", "/Pv/V", "pv_voltage")
 
 	# Track grid values from Multi
-	track ("com.victronenergy.vebus.ttyS3", "/Connected", "vebus_connected")
-	track ("com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "grid_available")
-	track ("com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "grid_power")
-	track ("com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "grid_voltage")	
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Connected", "vebus_connected")
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "grid_available")
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "grid_power")
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "grid_voltage")	
 
-	gobject.timeout_add(10000, roll_screens)
+	gobject.timeout_add(10000, partial(roll_screens, conn))
 
 	gobject.MainLoop().run()
 
 
 if __name__ == "__main__":
 	main()
-
-
