@@ -11,15 +11,13 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import update_cache, smart_dict
-from pages import BatteryPage, SolarPage, AcPage, LanPage, WlanPage
+from pages import StatusPage, BatteryPage, SolarPage, AcPage, LanPage, WlanPage
 
 ROLL_TIMEOUT = 5
 DISPLAY_COLS = 16
 DISPLAY_ROWS = 2
 
-screens = cycle([BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()])
-mppt_states = ['off', 'unknown', 'fault', 'bulk', 'absorpt', 'float']
-
+screens = cycle([StatusPage(), BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()])
 lcd = None	# Display handler
 
 def query(conn, service, path):
@@ -100,6 +98,7 @@ def main():
 	track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
 	track(conn, "com.victronenergy.system", "/Dc/Battery/Power", "battery_power")
 	track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")	
+	track(conn, "com.victronenergy.system", "/SystemState/State", "system_state")
 
 	# Track solar values from MPPT
 	track(conn, "com.victronenergy.solarcharger.ttyS1", "/Connected", "mppt_connected")

@@ -36,9 +36,35 @@ class Page(object):
 	def get_text(self, conn):
 		return [["", ""], ["", ""]]
 
-class BatteryPage(Page):
-	key = "battery"
+class StatusPage(Page):
+	states = {
+        0x00: "Off",
+        0x01: "Low Pwr",
+        0x02: "Fault",
+        0x03: "Bulk",
+        0x04: "Absorb",
+        0x05: "Float",
+        0x06: "Storage",
+        0x07: "Equalize",
+        0x08: "Passthru",
+        0x09: "Invert",
+        0x0A: "Assist",
+        0x0B: "Psu",
+        0x100: "Dischrg",
+        0x101: "Sustain",
+        0x102: "Recharge",
+        0x103: "Sch Chrg"
+	}
 
+	def get_text(self, conn):
+		text = [["Status:", "NO DATA"], ["Check Connection", ""]]
+		state = self.states.get(cache.system_state, None)
+		if state is not None:
+			text[0][1] = state
+			text[1][0] = ""
+		return text
+
+class BatteryPage(Page):
 	def get_text(self, conn):
 		text = [["Battery:", "NO DATA"], ["Check Connection", ""]]
 		if cache.battery_soc is not None:
@@ -51,8 +77,6 @@ class BatteryPage(Page):
 		return text
 
 class SolarPage(Page):
-	key = "solar"
-
 	def get_text(self, conn):
 		text = [["Solar:", "NO DATA"], ["Check Connection", ""]]
 		if cache.mppt_connected == 1:
@@ -71,7 +95,6 @@ class SolarPage(Page):
 		return text
 
 class AcPage(Page):
-	key = "grid"
 	sources = ["Unavailable", "Grid", "Generator", "Shore"]
 
 	def get_ac_source(self, x):
@@ -98,8 +121,6 @@ class AcPage(Page):
 		return text
 
 class LanPage(Page):
-	key = "lan_ip"
-
 	def _get_text(self, conn, head, iface):
 		text = [[head, ""], ["", ""]]
 		ip_params = {}
@@ -124,7 +145,5 @@ class LanPage(Page):
 		return self._get_text(conn, "LAN IP:", "ethernet")
 
 class WlanPage(LanPage):
-	key = "wifi_ip"
-
 	def get_text(self, conn):
 		return self._get_text(conn, "WIFI IP:", "wifi")
