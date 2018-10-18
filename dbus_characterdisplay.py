@@ -11,13 +11,13 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import update_cache, smart_dict
-from pages import BatteryPage, SolarPage, GridPage, LanPage, WlanPage
+from pages import BatteryPage, SolarPage, AcPage, LanPage, WlanPage
 
 ROLL_TIMEOUT = 5
 DISPLAY_COLS = 16
 DISPLAY_ROWS = 2
 
-screens = cycle([BatteryPage(), SolarPage(), GridPage(), LanPage(), WlanPage()])
+screens = cycle([BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()])
 mppt_states = ['off', 'unknown', 'fault', 'bulk', 'absorpt', 'float']
 
 lcd = None	# Display handler
@@ -99,6 +99,7 @@ def main():
 	track(conn, "com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
 	track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
 	track(conn, "com.victronenergy.system", "/Dc/Battery/Power", "battery_power")
+	track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")	
 
 	# Track solar values from MPPT
 	track(conn, "com.victronenergy.solarcharger.ttyS1", "/Connected", "mppt_connected")
@@ -108,9 +109,9 @@ def main():
 
 	# Track grid values from Multi
 	track(conn, "com.victronenergy.vebus.ttyS3", "/Connected", "vebus_connected")
-	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "grid_available")
-	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "grid_power")
-	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "grid_voltage")	
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "ac_available")
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "ac_power")
+	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "ac_voltage")	
 
 	# Keyboard handling
 	try:

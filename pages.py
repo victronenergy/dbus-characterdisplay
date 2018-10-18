@@ -70,23 +70,30 @@ class SolarPage(Page):
 
 		return text
 
-class GridPage(Page):
+class AcPage(Page):
 	key = "grid"
+	sources = ["Unavailable", "Grid", "Generator", "Shore"]
+
+	def get_ac_source(self, x):
+		try:
+			return self.sources[x]
+		except IndexError:
+			return self.sources[0]
 
 	def get_text(self, conn):
-		text = [["Grid:", "NO DATA"], ["Check Connection", ""]]
+		text = [["AC:", "NO DATA"], ["Check Connection", ""]]
 		if cache.vebus_connected == 1:
-			if cache.grid_available is not None:
-				if cache.grid_available == 1:
-					text[0][1] = "connected"
+			if cache.ac_available is not None and cache.ac_source is not None:
+				if cache.ac_available == 1:
+					text[0][1] = self.get_ac_source(cache.ac_source)
 				else:	
 					text[0][1] = "n/a"
 
-				if cache.grid_power is not None:
-					text[1][0] = "{:+.0f} W".format(cache.grid_power)
+				if cache.ac_power is not None:
+					text[1][0] = "{:+.0f} W".format(cache.ac_power)
 					
-				if (cache.grid_voltage is not None):
-					text[1][1] = "{:.0f} V".format(cache.grid_voltage)
+				if (cache.ac_voltage is not None):
+					text[1][1] = "{:.0f} V".format(cache.ac_voltage)
 
 		return text
 
