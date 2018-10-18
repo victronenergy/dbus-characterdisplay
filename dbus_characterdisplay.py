@@ -6,11 +6,13 @@ import sys
 from functools import partial
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
+from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
-from cache import update_cache
+from cache import update_cache, smart_dict
 from pages import BatteryPage, SolarPage, GridPage, LanPage, WlanPage
 
+ROLL_TIMEOUT = 10
 DISPLAY_COLS = 16
 DISPLAY_ROWS = 2
 
@@ -119,7 +121,34 @@ def main():
 	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "grid_power")
 	track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "grid_voltage")	
 
-	gobject.timeout_add(10000, partial(roll_screens, conn))
+	# Keyboard handling
+	try:
+		kbd = InputDevice("/dev/input/by-path/platform-disp_keys-event")
+	except OSError:
+		kbd = None
+
+	# Context object for event handlers
+	ctx = smart_dict({'count': ROLL_TIMEOUT, 'kbd': kbd})
+
+	if kbd is not None:
+		def keypress(fd, condition, ctx):
+			for event in ctx.kbd.read():
+				# We could check for event.code == ecodes.KEY_LEFT but there
+				# is only one button, so lets just make them all do the same.
+				if event.type == ecodes.EV_KEY and event.value == 1:
+					ctx.count = ROLL_TIMEOUT
+					roll_screens(conn)
+			return True
+
+		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
+
+	def tick(ctx):
+		if ctx.count == 0:
+			roll_screens(conn)
+		ctx.count = (ctx.count - 1) % ROLL_TIMEOUT
+		return True
+
+	gobject.timeout_add(1000, tick, ctx)
 
 	gobject.MainLoop().run()
 
