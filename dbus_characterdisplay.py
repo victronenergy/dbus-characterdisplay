@@ -4,6 +4,7 @@ import time
 import signal
 import sys
 from functools import partial
+from itertools import cycle
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from evdev import InputDevice, ecodes
@@ -12,14 +13,11 @@ import lcddriver
 from cache import update_cache, smart_dict
 from pages import BatteryPage, SolarPage, GridPage, LanPage, WlanPage
 
-ROLL_TIMEOUT = 10
+ROLL_TIMEOUT = 5
 DISPLAY_COLS = 16
 DISPLAY_ROWS = 2
 
-screens = [BatteryPage(), SolarPage(), GridPage(), LanPage(), WlanPage()]
-#screens = ['battery', 'solar', 'grid', 'lan_ip', 'wifi_ip']
-screen_index = -1	
-
+screens = cycle([BatteryPage(), SolarPage(), GridPage(), LanPage(), WlanPage()])
 mppt_states = ['off', 'unknown', 'fault', 'bulk', 'absorpt', 'float']
 
 lcd = None	# Display handler
@@ -57,19 +55,12 @@ def track(conn, service, path, target):
 		arg0=service))
 
 def roll_screens(conn):
-	# Iterate through screens array by incrementing screen_index.
-	global screen_index
-
-	screen_index = (screen_index + 1) % len(screens)
-	screen = screens[screen_index]
-	text = screen.get_text(conn)
-
-	if text is None:
-		roll_screens(conn)
-		return True
+	text = None
+	while text is None:
+		text = screens.next().get_text(conn)
 
 	# Display text
-	for row in range(0, DISPLAY_ROWS):
+	for row in xrange(0, DISPLAY_ROWS):
 		line = format_line(text[row])
 		lcd.lcd_display_string(line, row + 1)
 
