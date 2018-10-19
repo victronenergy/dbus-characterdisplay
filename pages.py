@@ -40,16 +40,25 @@ def format_line(line):
 
 
 class Page(object):
+	# Subclasses can override
+	_volatile = False
+	_auto = True
+
 	def __init__(self):
 		self.cache = smart_dict()
 
-		# Subclasses can override
-		self._volatile = False
 
 	@property
 	def volatile(self):
 		""" Returns true if this is a screen that should update often. """
 		return self._volatile
+
+	@property
+	def auto(self):
+		""" Returns true if this screen should be shown as part
+		    of the automatically looping slideshow. If you return
+			false screen can only be reached using the button. """
+		return self._auto
 
 	def unwrap_dbus_value(self, val):
 		# Converts D-Bus values back to the original type. For example if val is of type DBus.Double, a float will be returned.
@@ -185,9 +194,7 @@ class ErrorPage(Page):
 		return None
 
 class BatteryPage(Page):
-	def __init__(self):
-		super(BatteryPage, self).__init__()
-		self._volatile = True
+	_volatile = True
 
 	def setup(self, conn):
 		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
@@ -207,6 +214,7 @@ class BatteryPage(Page):
 		return text
 
 class SolarPage(Page):
+	_volatile = True
 	mppt_states = {
 		0x00: 'Off',
 		0x03: 'Bulk',
@@ -243,10 +251,7 @@ class SolarPage(Page):
 
 class AcPage(Page):
 	sources = ["Unavailable", "Grid", "Generator", "Shore"]
-
-	def __init__(self):
-		super(AcPage, self).__init__()
-		self._volatile = True
+	_volatile = True
 
 	def setup(self, conn):
 		self.track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")
@@ -279,6 +284,10 @@ class AcPage(Page):
 		return text
 
 class LanPage(Page):
+	def __init__(self):
+		super(LanPage, self).__init__()
+		self._auto = False
+
 	def _get_text(self, conn, head, iface):
 		text = [[head, ""], ["", ""]]
 		ip_params = {}

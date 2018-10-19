@@ -22,9 +22,11 @@ screens = cycle(_screens)
 def show_screen(conn, screen, lcd):
 	return screen.display(conn, lcd)
 
-def roll_screens(conn, lcd):
+def roll_screens(conn, lcd, auto):
 	# Cheap way of avoiding infinite loop
 	for screen, _ in izip(screens, _screens):
+		if auto and not screen.auto:
+			continue
 		if show_screen(conn, screen, lcd):
 			return screen
 	return None
@@ -68,14 +70,14 @@ def main():
 				if event.type == ecodes.EV_KEY and event.value == 1:
 					# When buttons are used, stay on selected screen longer
 					ctx.count = ROLL_TIMEOUT * 6
-					ctx.screen = roll_screens(conn, lcd)
+					ctx.screen = roll_screens(conn, lcd, False)
 			return True
 
 		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
 
 	def tick(ctx):
 		if ctx.count == 0:
-			ctx.screen = roll_screens(conn, lcd)
+			ctx.screen = roll_screens(conn, lcd, True)
 		elif ctx.screen is not None and ctx.screen.volatile:
 			# Update the screen text
 			ctx.screen.display(conn, lcd)
