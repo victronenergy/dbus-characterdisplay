@@ -1,4 +1,5 @@
 from functools import partial
+from itertools import count, izip
 from cache import smart_dict
 import dbus
 
@@ -109,14 +110,27 @@ class StatusPage(Page):
 
 
 	def setup(self, conn):
-		self.track(conn, "com.victronenergy.system", "/SystemState/State", "system_state")
+		self.track(conn, "com.victronenergy.system", "/SystemState/State", "state")
+		self.track(conn, "com.victronenergy.system", "/SystemState/BatteryLife", "bl")
+		self.track(conn, "com.victronenergy.system", "/SystemState/ChargeDisabled", "cd")
+		self.track(conn, "com.victronenergy.system", "/SystemState/DischargeDisabled", "dd")
+		self.track(conn, "com.victronenergy.system", "/SystemState/LowSoc", "ls")
+		self.track(conn, "com.victronenergy.system", "/SystemState/SlowCharge", "sc")
+		self.track(conn, "com.victronenergy.system", "/SystemState/UserChargeLimited", "ucl")
+		self.track(conn, "com.victronenergy.system", "/SystemState/UserDischargeLimited", "udl")
 
 	def get_text(self, conn):
 		text = [["Status:", "NO DATA"], ["Check Connection", ""]]
-		state = self.states.get(self.cache.system_state, None)
+		state = self.states.get(self.cache.state, None)
 		if state is not None:
 			text[0][1] = state
-			text[1][0] = ""
+
+		reasons = ("{:X}".format(reason) for reason, v in izip(count(1), (
+			self.cache.ls, self.cache.bl,
+			self.cache.cd, self.cache.dd, self.cache.sc, self.cache.ucl,
+			self.cache.udl)) if v)
+		text[1][0] = "#" + ",".join(reasons)
+
 		return text
 
 class BatteryPage(Page):
