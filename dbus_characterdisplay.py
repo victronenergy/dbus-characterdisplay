@@ -12,11 +12,11 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, BatteryPage, SolarPage, AcPage, LanPage, WlanPage
+from pages import StatusPage, BatteryPage, SolarPage, AcPage, LanPage, WlanPage, ErrorPage
 
 ROLL_TIMEOUT = 5
 
-_screens = [StatusPage(), BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()]
+_screens = [StatusPage(), ErrorPage(), BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()]
 screens = cycle(_screens)
 
 def show_screen(conn, screen, lcd):

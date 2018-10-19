@@ -166,9 +166,23 @@ class StatusPage(Page):
 			self.cache.ls, self.cache.bl,
 			self.cache.cd, self.cache.dd, self.cache.sc, self.cache.ucl,
 			self.cache.udl)) if v)
-		text[1][0] = "#" + ",".join(reasons)
+		reasons = ",".join(reasons)
+		text[1][0] = "#" + reasons if reasons else ""
 
 		return text
+
+class ErrorPage(Page):
+	def setup(self, conn):
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/VebusError", "vebus_error")
+		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/ErrorCode", "mppt_error")
+
+	def get_text(self, conn):
+		if self.cache.vebus_error or self.cache.mppt_error:
+			return [["VE.Bus error:", str(self.cache.vebus_error or 0)],
+				["  MPPT error:", str(self.cache.mppt_error or 0)]]
+
+		# Skip this page if no error
+		return None
 
 class BatteryPage(Page):
 	def __init__(self):
