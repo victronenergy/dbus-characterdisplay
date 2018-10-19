@@ -1,22 +1,12 @@
-from cache import cache
-from dbus import Interface
-
-screens = ['battery', 'solar', 'grid', 'lan_ip', 'wifi_ip']
-mppt_states = {
-	0x00: 'Off',
-	0x03: 'Bulk',
-	0x04: 'Absorb',
-	0x05: 'Float',
-	0x06: 'Storage',
-	0x07: 'Eqlz',
-	0xfc: 'ESS'
-}
+from functools import partial
+from cache import smart_dict
+import dbus
 
 def get_ipparams(conn, interface):
 	# Fetch IP params from conmann dbus for given interface (ethernet, wifi)
 
 	ip_params = {}
-	manager = Interface(conn.get_object("net.connman", "/"), "net.connman.Manager")
+	manager = dbus.Interface(conn.get_object("net.connman", "/"), "net.connman.Manager")
 
 	for path, properties in manager.GetServices():
 		if path.startswith('/net/connman/service/' + interface):
@@ -29,10 +19,71 @@ def get_ipparams(conn, interface):
 							ip_params[key] = str(props[param])
 
 	return ip_params
-					
 
 
 class Page(object):
+	def __init__(self):
+		self.cache = smart_dict()
+
+	def unwrap_dbus_value(self, val):
+		# Converts D-Bus values back to the original type. For example if val is of type DBus.Double, a float will be returned.
+		if isinstance(val, (dbus.Int32, dbus.UInt32, dbus.Byte, dbus.Int16, dbus.UInt16, dbus.UInt32, dbus.Int64, dbus.UInt64)):
+			return int(val)
+		if isinstance(val, dbus.Double):
+			return float(val)
+		if isinstance(val, dbus.String):
+			return str(val)
+
+		return val
+
+
+	def update_cache(self, key, v):
+		if isinstance(v, dbus.Dictionary):
+			value = v["Value"]
+		elif isinstance(v, dbus.Array):
+			value = None
+		else:
+			value = v
+
+		if isinstance(value, dbus.Array):
+			value = None
+
+		self.cache[key] = self.unwrap_dbus_value(value)
+
+	def query(self, conn, service, path):
+		try:
+			return conn.call_blocking(service, path, None, "GetValue", '', [])
+		except:
+			return None
+
+	def track(self, conn, service, path, target):
+
+		# Initialise cache values
+		self.update_cache(target, self.query(conn, service, path))
+
+		# If there are values on dbus update cache after property change
+		watches = []
+		watches.append(conn.add_signal_receiver(
+			partial(self.update_cache, target),
+			dbus_interface='com.victronenergy.BusItem',
+			signal_name='PropertiesChanged',
+			path=path,
+			bus_name=service
+		))
+
+		# Also track service movement
+		def _track(name, old, new):
+			for w in watches:
+				w.remove()
+			self.track(conn, service, path, target)
+
+		watches.append(conn.add_signal_receiver(_track,
+			signal_name='NameOwnerChanged',
+			arg0=service))
+
+	def setup(self, conn):
+		pass
+
 	def get_text(self, conn):
 		return [["", ""], ["", ""]]
 
@@ -56,46 +107,80 @@ class StatusPage(Page):
         0x103: "Sch Chrg"
 	}
 
+
+	def setup(self, conn):
+		self.track(conn, "com.victronenergy.system", "/SystemState/State", "system_state")
+
 	def get_text(self, conn):
 		text = [["Status:", "NO DATA"], ["Check Connection", ""]]
-		state = self.states.get(cache.system_state, None)
+		state = self.states.get(self.cache.system_state, None)
 		if state is not None:
 			text[0][1] = state
 			text[1][0] = ""
 		return text
 
 class BatteryPage(Page):
+	def setup(self, conn):
+		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
+		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
+		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Power", "battery_power")
+
+
 	def get_text(self, conn):
 		text = [["Battery:", "NO DATA"], ["Check Connection", ""]]
-		if cache.battery_soc is not None:
-			text[0][1] = "{:.1f} %".format(cache.battery_soc)
-			if (cache.battery_power is not None):
-				text[1][0] = "{:+.0f} W".format(cache.battery_power)
+		if self.cache.battery_soc is not None:
+			text[0][1] = "{:.1f} %".format(self.cache.battery_soc)
+			if (self.cache.battery_power is not None):
+				text[1][0] = "{:+.0f} W".format(self.cache.battery_power)
 
-			if (cache.battery_voltage is not None):
-				text[1][1] = "{:.1f} V".format(cache.battery_voltage)
+			if (self.cache.battery_voltage is not None):
+				text[1][1] = "{:.1f} V".format(self.cache.battery_voltage)
 		return text
 
 class SolarPage(Page):
+	mppt_states = {
+		0x00: 'Off',
+		0x03: 'Bulk',
+		0x04: 'Absorb',
+		0x05: 'Float',
+		0x06: 'Storage',
+		0x07: 'Eqlz',
+		0xfc: 'ESS'
+	}
+
+	def setup(self, conn):
+		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/Connected", "mppt_connected")
+		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/State", "mppt_state")
+		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/Yield/Power", "pv_power")
+		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/Pv/V", "pv_voltage")
+
+
 	def get_text(self, conn):
 		text = [["Solar:", "NO DATA"], ["Check Connection", ""]]
-		if cache.mppt_connected == 1:
-			if cache.mppt_state is not None:
+		if self.cache.mppt_connected == 1:
+			if self.cache.mppt_state is not None:
 				try:
-					text[0][1] = mppt_states[cache.mppt_state]
+					text[0][1] = self.mppt_states[self.cache.mppt_state]
 				except KeyError:
 					text[0][1] = "unknown"
-		
-			if cache.pv_power is not None:
-				text[1][0] = "{:.0f} W".format(cache.pv_power)
 
-			if (cache.pv_voltage is not None):
-				text[1][1] = "{:.1f} V".format(cache.pv_voltage)				
+			if self.cache.pv_power is not None:
+				text[1][0] = "{:.0f} W".format(self.cache.pv_power)
+
+			if (self.cache.pv_voltage is not None):
+				text[1][1] = "{:.1f} V".format(self.cache.pv_voltage)
 
 		return text
 
 class AcPage(Page):
 	sources = ["Unavailable", "Grid", "Generator", "Shore"]
+
+	def setup(self, conn):
+		self.track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Connected", "vebus_connected")
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "ac_available")
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "ac_power")
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "ac_voltage")
 
 	def get_ac_source(self, x):
 		try:
@@ -105,18 +190,18 @@ class AcPage(Page):
 
 	def get_text(self, conn):
 		text = [["AC:", "NO DATA"], ["Check Connection", ""]]
-		if cache.vebus_connected == 1:
-			if cache.ac_available is not None and cache.ac_source is not None:
-				if cache.ac_available == 1:
-					text[0][1] = self.get_ac_source(cache.ac_source)
-				else:	
+		if self.cache.vebus_connected == 1:
+			if self.cache.ac_available is not None and self.cache.ac_source is not None:
+				if self.cache.ac_available == 1:
+					text[0][1] = self.get_ac_source(self.cache.ac_source)
+				else:
 					text[0][1] = "n/a"
 
-				if cache.ac_power is not None:
-					text[1][0] = "{:+.0f} W".format(cache.ac_power)
-					
-				if (cache.ac_voltage is not None):
-					text[1][1] = "{:.0f} V".format(cache.ac_voltage)
+				if self.cache.ac_power is not None:
+					text[1][0] = "{:+.0f} W".format(self.cache.ac_power)
+
+				if (self.cache.ac_voltage is not None):
+					text[1][1] = "{:.0f} V".format(self.cache.ac_voltage)
 
 		return text
 
