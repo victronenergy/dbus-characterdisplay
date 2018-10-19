@@ -123,8 +123,6 @@ class Page(object):
 			line = format_line(text[row])
 			lcd.lcd_display_string(line, row + 1)
 
-			print '|' + line + '|'
-		print '|' + '-'*DISPLAY_COLS + '|'
 		return True
 
 class StatusPage(Page):

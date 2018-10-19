@@ -3,6 +3,7 @@
 import time
 import signal
 import sys
+from argparse import ArgumentParser
 from functools import partial
 from itertools import cycle, izip
 import dbus
@@ -17,27 +18,35 @@ ROLL_TIMEOUT = 5
 
 _screens = [StatusPage(), BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()]
 screens = cycle(_screens)
-lcd = None	# Display handler
 
-def show_screen(conn, screen):
+def show_screen(conn, screen, lcd):
 	return screen.display(conn, lcd)
 
-def roll_screens(conn):
+def roll_screens(conn, lcd):
 	# Cheap way of avoiding infinite loop
 	for screen, _ in izip(screens, _screens):
-		if show_screen(conn, screen):
+		if show_screen(conn, screen, lcd):
 			return screen
 	return None
 
 def main():
+	parser = ArgumentParser(description=sys.argv[0])
+	parser.add_argument('--debug',
+			help='Print to terminal instead of to /dev/lcd',
+			default=False, action="store_true")
+	args = parser.parse_args()
+
+
 	DBusGMainLoop(set_as_default=True)
 
-	global lcd
+	# Initialize dbus connector
+	conn = dbus.SystemBus()
 
-	conn = dbus.SystemBus()	# Initialize dbus connector
-	lcd = lcddriver.Lcd()	# Get LCD display handler
+	# Get LCD display handler
+	lcd = lcddriver.DebugLcd() if args.debug else lcddriver.Lcd()
 
-	lcd.lcd_splash() 	# Show spash screen while initialization
+	# Show spash screen while initialization
+	lcd.lcd_splash()
 
 	for screen in _screens:
 		screen.setup(conn)
@@ -59,14 +68,14 @@ def main():
 				if event.type == ecodes.EV_KEY and event.value == 1:
 					# When buttons are used, stay on selected screen longer
 					ctx.count = ROLL_TIMEOUT * 6
-					ctx.screen = roll_screens(conn)
+					ctx.screen = roll_screens(conn, lcd)
 			return True
 
 		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
 
 	def tick(ctx):
 		if ctx.count == 0:
-			ctx.screen = roll_screens(conn)
+			ctx.screen = roll_screens(conn, lcd)
 		elif ctx.screen is not None and ctx.screen.volatile:
 			# Update the screen text
 			ctx.screen.display(conn, lcd)
