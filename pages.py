@@ -3,6 +3,9 @@ from itertools import count, izip
 from cache import smart_dict
 import dbus
 
+DISPLAY_COLS = 16
+DISPLAY_ROWS = 2
+
 def get_ipparams(conn, interface):
 	# Fetch IP params from conmann dbus for given interface (ethernet, wifi)
 
@@ -22,9 +25,31 @@ def get_ipparams(conn, interface):
 	return ip_params
 
 
+def format_line(line):
+	if (line and line[0] is not None):
+		pad = DISPLAY_COLS - len(line[0])
+
+		if (pad < 0):
+			return ("{:.{}}").format(line[0], DISPLAY_COLS)
+		elif (len(line[1]) > pad):
+			return ("{}{:.{}}").format(line[0], line[1], pad)
+		else:	
+			return ("{}{:>{}}").format(line[0], line[1], pad)	
+
+	return " "*DISPLAY_COLS
+
+
 class Page(object):
 	def __init__(self):
 		self.cache = smart_dict()
+
+		# Subclasses can override
+		self._volatile = False
+
+	@property
+	def volatile(self):
+		""" Returns true if this is a screen that should update often. """
+		return self._volatile
 
 	def unwrap_dbus_value(self, val):
 		# Converts D-Bus values back to the original type. For example if val is of type DBus.Double, a float will be returned.
@@ -88,6 +113,20 @@ class Page(object):
 	def get_text(self, conn):
 		return [["", ""], ["", ""]]
 
+	def display(self, conn, lcd):
+		text = self.get_text(conn)
+		if text is None:
+			return False
+
+		# Display text
+		for row in xrange(0, DISPLAY_ROWS):
+			line = format_line(text[row])
+			lcd.lcd_display_string(line, row + 1)
+
+			print '|' + line + '|'
+		print '|' + '-'*DISPLAY_COLS + '|'
+		return True
+
 class StatusPage(Page):
 	states = {
         0x00: "Off",
@@ -134,6 +173,10 @@ class StatusPage(Page):
 		return text
 
 class BatteryPage(Page):
+	def __init__(self):
+		super(BatteryPage, self).__init__()
+		self._volatile = True
+
 	def setup(self, conn):
 		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
 		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
@@ -188,6 +231,10 @@ class SolarPage(Page):
 
 class AcPage(Page):
 	sources = ["Unavailable", "Grid", "Generator", "Shore"]
+
+	def __init__(self):
+		super(AcPage, self).__init__()
+		self._volatile = True
 
 	def setup(self, conn):
 		self.track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")
