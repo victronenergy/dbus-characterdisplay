@@ -57,7 +57,8 @@ def main():
 				# We could check for event.code == ecodes.KEY_LEFT but there
 				# is only one button, so lets just make them all do the same.
 				if event.type == ecodes.EV_KEY and event.value == 1:
-					ctx.count = ROLL_TIMEOUT
+					# When buttons are used, stay on selected screen longer
+					ctx.count = ROLL_TIMEOUT * 6
 					ctx.screen = roll_screens(conn)
 			return True
 
@@ -70,7 +71,7 @@ def main():
 			# Update the screen text
 			ctx.screen.display(conn, lcd)
 
-		ctx.count = (ctx.count - 1) % ROLL_TIMEOUT
+		ctx.count = ctx.count - 1 if ctx.count > 0 else ROLL_TIMEOUT
 		return True
 
 	gobject.timeout_add(1000, tick, ctx)
