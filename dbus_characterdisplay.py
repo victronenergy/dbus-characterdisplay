@@ -5,7 +5,7 @@ import signal
 import sys
 from argparse import ArgumentParser
 from functools import partial
-from itertools import cycle, izip
+from itertools import izip
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from evdev import InputDevice, ecodes
@@ -15,8 +15,26 @@ from cache import smart_dict
 from pages import StatusPage, BatteryPage, SolarPage, AcPage, LanPage, WlanPage, ErrorPage
 
 ROLL_TIMEOUT = 5
+BACKLIGHT_TIMEOUT = 300
 
 _screens = [StatusPage(), ErrorPage(), BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()]
+
+class cycle(object):
+	""" Cyclical list-iterator that can be reset. """
+	def __init__(self, li):
+		self.li = li
+		self.reset()
+	def reset(self):
+		self.iterable = iter(self.li)
+	def next(self):
+		try:
+			return next(self.iterable)
+		except StopIteration:
+			self.reset()
+			return next(self.iterable)
+	def __iter__(self):
+		return self
+
 screens = cycle(_screens)
 
 def show_screen(conn, screen, lcd):
@@ -69,12 +87,17 @@ def main():
 				# is only one button, so lets just make them all do the same.
 				if event.type == ecodes.EV_KEY and event.value == 1:
 					# If backlight is off, turn it on
-					if not lcd.on:
+					if lcd.on:
+						# When buttons are used, stay on selected screen longer
+						ctx.count = ROLL_TIMEOUT * 6
+					else:
+						# Except when the backlight was off, then normal timeout.
+						ctx.count = ROLL_TIMEOUT
 						lcd.on = True
+						screens.reset()
 
-					# When buttons are used, stay on selected screen longer
-					ctx.count = ROLL_TIMEOUT * 6
 					ctx.screen = roll_screens(conn, lcd, False)
+
 			return True
 
 		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
@@ -86,7 +109,7 @@ def main():
 
 		if ctx.count == 0:
 			ctx.screen = roll_screens(conn, lcd, True)
-			if lcd.on_time > 300:
+			if lcd.on_time > BACKLIGHT_TIMEOUT:
 				lcd.on = False
 		elif ctx.screen is not None and ctx.screen.volatile:
 			# Update the screen text
