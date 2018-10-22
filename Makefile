@@ -19,7 +19,7 @@ install_app : $(FILES)
 		echo installed $(DESTDIR)$(bindir)/$(notdir $^); \
 	fi
 
-clean: ;
+clean distclean: ;
 
 install: install_app
 
@@ -29,4 +29,4 @@ testinstall:
 	(cd $(TMP) && ./dbus_characterdisplay.py --help > /dev/null)
 	-rm -rf $(TMP)
 
-.PHONY: help install_app install
+.PHONY: help install_app install clean distclean testinstall
