@@ -16,36 +16,36 @@ class Lcd(object):
 	def __init__(self):
 		self.lcd = os.open(LCD_DEV, os.O_WRONLY)
 
-	def lcd_write(self, data):
+	def write(self, data):
 		os.write(self.lcd, data)
 
 	# put string function
-	def lcd_display_string(self, string, line):
-		self.lcd_write(LCD_XY % (0, line - 1))
-		self.lcd_write(string)
+	def display_string(self, string, line):
+		self.write(LCD_XY % (0, line - 1))
+		self.write(string)
 
 	# clear lcd and set to home
-	def lcd_clear(self):
-		self.lcd_write(LCD_CLEARDISPLAY)
+	def clear(self):
+		self.write(LCD_CLEARDISPLAY)
 
-	def lcd_off(self):
-		self.lcd_clear()
-		self.lcd_write(LCD_BACKLIGHT_OFF)
+	def off(self):
+		self.clear()
+		self.write(LCD_BACKLIGHT_OFF)
 
-	def lcd_on(self):
-		self.lcd_write(LCD_RETURNHOME)
-		self.lcd_write(LCD_BACKLIGHT_ON)
+	def on(self):
+		self.write(LCD_RETURNHOME)
+		self.write(LCD_BACKLIGHT_ON)
 
-	def lcd_splash(self):
-		self.lcd_on()
-		self.lcd_display_string(' Victron Energy ', 1)
-		self.lcd_display_string('   EasySolar    ', 2)
+	def splash(self):
+		self.on()
+		self.display_string(' Victron Energy ', 1)
+		self.display_string('   EasySolar    ', 2)
 
 class DebugLcd(Lcd):
 	def __init__(self):
 		pass
 
-	def lcd_display_string(self, string, line):
+	def display_string(self, string, line):
 		if line == 1:
 			print '|' + '-'*16 + '|'
 		print '|' + string + '|'
@@ -53,5 +53,5 @@ class DebugLcd(Lcd):
 	def lcd_off(self):
 		pass
 
-	def lcd_on(self):
+	def on(self):
 		pass

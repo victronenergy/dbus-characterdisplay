@@ -130,7 +130,7 @@ class Page(object):
 		# Display text
 		for row in xrange(0, DISPLAY_ROWS):
 			line = format_line(text[row])
-			lcd.lcd_display_string(line, row + 1)
+			lcd.display_string(line, row + 1)
 
 		return True
 

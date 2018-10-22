@@ -48,7 +48,7 @@ def main():
 	lcd = lcddriver.DebugLcd() if args.debug else lcddriver.Lcd()
 
 	# Show spash screen while initialization
-	lcd.lcd_splash()
+	lcd.splash()
 
 	for screen in _screens:
 		screen.setup(conn)
