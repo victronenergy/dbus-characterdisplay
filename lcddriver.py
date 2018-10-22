@@ -1,5 +1,6 @@
 import sys
 import os
+from time import time
 
 # LCD device
 LCD_DEV = '/dev/lcd'
@@ -15,6 +16,8 @@ class Lcd(object):
 	#initializes objects and lcd
 	def __init__(self):
 		self.lcd = os.open(LCD_DEV, os.O_WRONLY)
+		self._backlight_on = True
+		self._turned_on = time()
 
 	def write(self, data):
 		os.write(self.lcd, data)
@@ -28,16 +31,26 @@ class Lcd(object):
 	def clear(self):
 		self.write(LCD_CLEARDISPLAY)
 
-	def off(self):
-		self.clear()
-		self.write(LCD_BACKLIGHT_OFF)
-
+	@property
 	def on(self):
-		self.write(LCD_RETURNHOME)
-		self.write(LCD_BACKLIGHT_ON)
+		return self._backlight_on
+
+	@on.setter
+	def on(self, v):
+		self._backlight_on = bool(v)
+		if v:
+			self._turned_on = time()
+			self.write(LCD_RETURNHOME)
+			self.write(LCD_BACKLIGHT_ON)
+		else:
+			self.write(LCD_BACKLIGHT_OFF)
+
+	@property
+	def on_time(self):
+		return max(0, time() - self._turned_on)
 
 	def splash(self):
-		self.on()
+		self.on = True
 		self.display_string(' Victron Energy ', 1)
 		self.display_string('   EasySolar    ', 2)
 
@@ -50,8 +63,10 @@ class DebugLcd(Lcd):
 			print '|' + '-'*16 + '|'
 		print '|' + string + '|'
 
-	def lcd_off(self):
+	@property
+	def on(self):
 		pass
 
-	def on(self):
+	@on.setter
+	def on(self, v):
 		pass

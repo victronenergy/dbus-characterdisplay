@@ -68,6 +68,10 @@ def main():
 				# We could check for event.code == ecodes.KEY_LEFT but there
 				# is only one button, so lets just make them all do the same.
 				if event.type == ecodes.EV_KEY and event.value == 1:
+					# If backlight is off, turn it on
+					if not lcd.on:
+						lcd.on = True
+
 					# When buttons are used, stay on selected screen longer
 					ctx.count = ROLL_TIMEOUT * 6
 					ctx.screen = roll_screens(conn, lcd, False)
@@ -76,8 +80,14 @@ def main():
 		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
 
 	def tick(ctx):
+		# No need to update if the backlight is off
+		if not lcd.on:
+			return True
+
 		if ctx.count == 0:
 			ctx.screen = roll_screens(conn, lcd, True)
+			if lcd.on_time > 300:
+				lcd.on = False
 		elif ctx.screen is not None and ctx.screen.volatile:
 			# Update the screen text
 			ctx.screen.display(conn, lcd)
