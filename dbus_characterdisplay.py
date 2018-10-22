@@ -3,6 +3,7 @@
 import time
 import signal
 import sys
+import logging
 from os.path import basename
 from argparse import ArgumentParser
 from functools import partial
@@ -68,6 +69,8 @@ def main():
 		print "{} v{}".format(basename(sys.argv[0]), VERSION)
 		return
 
+	logging.basicConfig(format="%(levelname)s %(message)s", level=logging.INFO)
+	logging.info("Starting {} v{}".format(basename(sys.argv[0]), VERSION))
 
 	DBusGMainLoop(set_as_default=True)
 
