@@ -3,6 +3,7 @@
 import time
 import signal
 import sys
+from os.path import basename
 from argparse import ArgumentParser
 from functools import partial
 from itertools import izip
@@ -14,6 +15,7 @@ import lcddriver
 from cache import smart_dict
 from pages import StatusPage, BatteryPage, SolarPage, AcPage, LanPage, WlanPage, ErrorPage
 
+VERSION = 0.1
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
 
@@ -57,7 +59,14 @@ def main():
 	parser.add_argument('--lcd',
 			help='Path to lcd device, default /dev/lcd',
 			default='/dev/lcd')
+	parser.add_argument('--version',
+			help='Print the version to stdout',
+			default=False, action="store_true")
 	args = parser.parse_args()
+
+	if args.version:
+		print "{} v{}".format(basename(sys.argv[0]), VERSION)
+		return
 
 
 	DBusGMainLoop(set_as_default=True)
