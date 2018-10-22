@@ -54,6 +54,9 @@ def main():
 	parser.add_argument('--debug',
 			help='Print to terminal instead of to /dev/lcd',
 			default=False, action="store_true")
+	parser.add_argument('--lcd',
+			help='Path to lcd device, default /dev/lcd',
+			default='/dev/lcd')
 	args = parser.parse_args()
 
 
@@ -63,7 +66,7 @@ def main():
 	conn = dbus.SystemBus()
 
 	# Get LCD display handler
-	lcd = lcddriver.DebugLcd() if args.debug else lcddriver.Lcd()
+	lcd = lcddriver.DebugLcd() if args.debug else lcddriver.Lcd(args.lcd)
 
 	# Show spash screen while initialization
 	lcd.splash()

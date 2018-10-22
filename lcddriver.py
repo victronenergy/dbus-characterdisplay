@@ -2,9 +2,6 @@ import sys
 import os
 from time import time
 
-# LCD device
-LCD_DEV = '/dev/lcd'
-
 # commands
 LCD_CLEARDISPLAY = '\014'
 LCD_RETURNHOME = '\033[H'
@@ -14,8 +11,8 @@ LCD_BACKLIGHT_OFF = '\033[L-'
 
 class Lcd(object):
 	#initializes objects and lcd
-	def __init__(self):
-		self.lcd = os.open(LCD_DEV, os.O_WRONLY)
+	def __init__(self, lcd_dev):
+		self.lcd = os.open(lcd_dev, os.O_WRONLY)
 		self._backlight_on = True
 		self._turned_on = time()
 
