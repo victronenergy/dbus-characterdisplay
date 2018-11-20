@@ -35,8 +35,8 @@ def format_line(line):
 			return ("{:.{}}").format(line[0], DISPLAY_COLS)
 		elif (len(line[1]) > pad):
 			return ("{}{:.{}}").format(line[0], line[1], pad)
-		else:	
-			return ("{}{:>{}}").format(line[0], line[1], pad)	
+		else:
+			return ("{}{:>{}}").format(line[0], line[1], pad)
 
 	return " "*DISPLAY_COLS
 
