@@ -86,8 +86,23 @@ def main():
 	# Show spash screen while initialization
 	lcd.splash()
 
-	for screen in _screens:
-		screen.setup(conn)
+	# Handle services that are already up
+	for name in conn.list_names():
+		if name.startswith("com.victronenergy."):
+			for screen in _screens:
+				screen.setup(conn, name)
+
+	# watch name changes
+	def name_owner_changed(name, old, new):
+		if name.startswith('com.victronenergy.'):
+			if old:
+				for screen in _screens:
+					screen.cleanup(name)
+			if new:
+				for screen in _screens:
+					screen.setup(conn, name)
+
+	conn.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
 
 	# Keyboard handling
 	try:

@@ -1,5 +1,7 @@
+import logging
 from functools import partial
 from itertools import count, izip
+from collections import defaultdict
 from cache import smart_dict
 import dbus
 
@@ -46,7 +48,7 @@ class Page(object):
 
 	def __init__(self):
 		self.cache = smart_dict()
-
+		self.watches = defaultdict(list)
 
 	@property
 	def volatile(self):
@@ -97,33 +99,34 @@ class Page(object):
 		self.update_cache(target, self.query(conn, service, path))
 
 		# If there are values on dbus update cache after property change
-		watches = []
-		watches.append(conn.add_signal_receiver(
+		self.watches[service].append((target, conn.add_signal_receiver(
 			partial(self.update_cache, target),
 			dbus_interface='com.victronenergy.BusItem',
 			signal_name='PropertiesChanged',
 			path=path,
 			bus_name=service
-		))
+		)))
 
-		# Also track service movement
-		def _track(name, old, new):
-			for w in watches:
+	def cleanup(self, name):
+		if name in self.watches:
+			for target, w in self.watches[name]:
 				w.remove()
-			self.track(conn, service, path, target)
+				self.update_cache(target, None)
+			del self.watches[name]
 
-		watches.append(conn.add_signal_receiver(_track,
-			signal_name='NameOwnerChanged',
-			arg0=service))
-
-	def setup(self, conn):
+	def setup(self, conn, name):
 		pass
 
 	def get_text(self, conn):
 		return [["", ""], ["", ""]]
 
 	def display(self, conn, lcd):
-		text = self.get_text(conn)
+		try:
+			text = self.get_text(conn)
+		except Exception, e:
+			logging.exception("Exception showing page")
+			return False
+
 		if text is None:
 			return False
 
@@ -155,15 +158,16 @@ class StatusPage(Page):
 	}
 
 
-	def setup(self, conn):
-		self.track(conn, "com.victronenergy.system", "/SystemState/State", "state")
-		self.track(conn, "com.victronenergy.system", "/SystemState/BatteryLife", "bl")
-		self.track(conn, "com.victronenergy.system", "/SystemState/ChargeDisabled", "cd")
-		self.track(conn, "com.victronenergy.system", "/SystemState/DischargeDisabled", "dd")
-		self.track(conn, "com.victronenergy.system", "/SystemState/LowSoc", "ls")
-		self.track(conn, "com.victronenergy.system", "/SystemState/SlowCharge", "sc")
-		self.track(conn, "com.victronenergy.system", "/SystemState/UserChargeLimited", "ucl")
-		self.track(conn, "com.victronenergy.system", "/SystemState/UserDischargeLimited", "udl")
+	def setup(self, conn, name):
+		if name == "com.victronenergy.system":
+			self.track(conn, name, "/SystemState/State", "state")
+			self.track(conn, name, "/SystemState/BatteryLife", "bl")
+			self.track(conn, name, "/SystemState/ChargeDisabled", "cd")
+			self.track(conn, name, "/SystemState/DischargeDisabled", "dd")
+			self.track(conn, name, "/SystemState/LowSoc", "ls")
+			self.track(conn, name, "/SystemState/SlowCharge", "sc")
+			self.track(conn, name, "/SystemState/UserChargeLimited", "ucl")
+			self.track(conn, name, "/SystemState/UserDischargeLimited", "udl")
 
 	def get_text(self, conn):
 		text = [["Status:", "NO DATA"], ["Check Connection", ""]]
@@ -181,9 +185,12 @@ class StatusPage(Page):
 		return text
 
 class ErrorPage(Page):
-	def setup(self, conn):
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/VebusError", "vebus_error")
-		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/ErrorCode", "mppt_error")
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.vebus."):
+			self.track(conn, name, "/VebusError", "vebus_error")
+
+		if name.startswith("com.victronenergy.solarcharger."):
+			self.track(conn, name, "/ErrorCode", "mppt_error")
 
 	def get_text(self, conn):
 		if self.cache.vebus_error or self.cache.mppt_error:
@@ -196,10 +203,11 @@ class ErrorPage(Page):
 class BatteryPage(Page):
 	_volatile = True
 
-	def setup(self, conn):
-		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Voltage", "battery_voltage")
-		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "battery_soc")
-		self.track(conn, "com.victronenergy.system", "/Dc/Battery/Power", "battery_power")
+	def setup(self, conn, name):
+		if name == "com.victronenergy.system":
+			self.track(conn, name, "/Dc/Battery/Voltage", "battery_voltage")
+			self.track(conn, name, "/Dc/Battery/Soc", "battery_soc")
+			self.track(conn, name, "/Dc/Battery/Power", "battery_power")
 
 
 	def get_text(self, conn):
@@ -225,11 +233,12 @@ class SolarPage(Page):
 		0xfc: 'ESS'
 	}
 
-	def setup(self, conn):
-		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/Connected", "mppt_connected")
-		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/State", "mppt_state")
-		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/Yield/Power", "pv_power")
-		self.track(conn, "com.victronenergy.solarcharger.ttyS1", "/Pv/V", "pv_voltage")
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.solarcharger."):
+			self.track(conn, name, "/Connected", "mppt_connected")
+			self.track(conn, name, "/State", "mppt_state")
+			self.track(conn, name, "/Yield/Power", "pv_power")
+			self.track(conn, name, "/Pv/V", "pv_voltage")
 
 
 	def get_text(self, conn):
@@ -256,11 +265,14 @@ class AcPage(Page):
 	sources = ["Unavailable", "Grid", "Generator", "Shore"]
 	_volatile = True
 
-	def setup(self, conn):
-		self.track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Connected", "vebus_connected")
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "ac_available")
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/P", "ac_power")
+	def setup(self, conn, name):
+		if name == "com.victronenergy.system":
+			self.track(conn, name, "/Ac/ActiveIn/Source", "ac_source")
+
+		if name.startswith("com.victronenergy.vebus."):
+			self.track(conn, name, "/Connected", "vebus_connected")
+			self.track(conn, name, "/Ac/ActiveIn/Connected", "ac_available")
+			self.track(conn, name, "/Ac/ActiveIn/P", "ac_power")
 
 	def get_ac_source(self, x):
 		try:
@@ -291,9 +303,10 @@ class AcPhasePage(Page):
 		super(AcPhasePage, self).__init__()
 		self.phase = phase
 
-	def setup(self, conn):
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L{}/P".format(self.phase), "ac_power")
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L{}/V".format(self.phase), "ac_voltage")
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.vebus."):
+			self.track(conn, name, "/Ac/ActiveIn/L{}/P".format(self.phase), "ac_power")
+			self.track(conn, name, "/Ac/ActiveIn/L{}/V".format(self.phase), "ac_voltage")
 
 	def get_text(self, conn):
 		if self.cache.ac_power is None:
