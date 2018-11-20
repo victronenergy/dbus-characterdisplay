@@ -14,13 +14,16 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, BatteryPage, SolarPage, AcPage, LanPage, WlanPage, ErrorPage
+from pages import StatusPage, BatteryPage, SolarPage, AcPage, AcPhasePage
+from pages import LanPage, WlanPage, ErrorPage
 
 VERSION = 0.1
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
 
-_screens = [StatusPage(), ErrorPage(), BatteryPage(), SolarPage(), AcPage(), LanPage(), WlanPage()]
+_screens = [StatusPage(), ErrorPage(), BatteryPage(), SolarPage(), AcPage(),
+	AcPhasePage(1), AcPhasePage(2), AcPhasePage(3),
+	LanPage(), WlanPage()]
 
 class cycle(object):
 	""" Cyclical list-iterator that can be reset. """

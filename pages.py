@@ -257,8 +257,7 @@ class AcPage(Page):
 		self.track(conn, "com.victronenergy.system", "/Ac/ActiveIn/Source", "ac_source")
 		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Connected", "vebus_connected")
 		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/Connected", "ac_available")
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/P", "ac_power")
-		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L1/V", "ac_voltage")
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/P", "ac_power")
 
 	def get_ac_source(self, x):
 		try:
@@ -267,7 +266,7 @@ class AcPage(Page):
 			return self.sources[0]
 
 	def get_text(self, conn):
-		text = [["AC:", "NO DATA"], ["Check Connection", ""]]
+		text = [["AC:", "NO DATA"], ["", ""]]
 		if self.cache.vebus_connected == 1:
 			if self.cache.ac_available is not None and self.cache.ac_source is not None:
 				if self.cache.ac_available == 1:
@@ -276,12 +275,30 @@ class AcPage(Page):
 					text[0][1] = "n/a"
 
 				if self.cache.ac_power is not None:
-					text[1][0] = "{:+.0f} W".format(self.cache.ac_power)
-
-				if (self.cache.ac_voltage is not None):
-					text[1][1] = "{:.0f} V".format(self.cache.ac_voltage)
+					text[1][0] = "Power:"
+					text[1][1] = "{:+.0f} W".format(self.cache.ac_power)
 
 		return text
+
+class AcPhasePage(Page):
+	_volatile = True
+	_auto = False
+
+	def __init__(self, phase):
+		super(AcPhasePage, self).__init__()
+		self.phase = phase
+
+	def setup(self, conn):
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L{}/P".format(self.phase), "ac_power")
+		self.track(conn, "com.victronenergy.vebus.ttyS3", "/Ac/ActiveIn/L{}/V".format(self.phase), "ac_voltage")
+
+	def get_text(self, conn):
+		if self.cache.ac_power is None:
+			return None
+
+		return [["Phase:", "L{}".format(self.phase)], [
+			"{:+.0f} W".format(self.cache.ac_power),
+			"{:.0f} V".format(self.cache.ac_voltage)]]
 
 class LanPage(Page):
 	def __init__(self):
