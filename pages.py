@@ -233,19 +233,22 @@ class SolarPage(Page):
 
 
 	def get_text(self, conn):
-		text = [["Solar:", "NO DATA"], ["Check Connection", ""]]
-		if self.cache.mppt_connected == 1:
-			if self.cache.mppt_state is not None:
-				try:
-					text[0][1] = self.mppt_states[self.cache.mppt_state]
-				except KeyError:
-					text[0][1] = "unknown"
+		# Skip page if no mppt connected
+		if not self.cache.mppt_connected:
+			return None
 
-			if self.cache.pv_power is not None:
-				text[1][0] = "{:.0f} W".format(self.cache.pv_power)
+		text = [["Solar:", "unknown"], ["", ""]]
+		if self.cache.mppt_state is not None:
+			try:
+				text[0][1] = self.mppt_states[self.cache.mppt_state]
+			except KeyError:
+				pass
 
-			if (self.cache.pv_voltage is not None):
-				text[1][1] = "{:.1f} V".format(self.cache.pv_voltage)
+		if self.cache.pv_power is not None:
+			text[1][0] = "{:.0f} W".format(self.cache.pv_power)
+
+		if (self.cache.pv_voltage is not None):
+			text[1][1] = "{:.1f} V".format(self.cache.pv_voltage)
 
 		return text
 
