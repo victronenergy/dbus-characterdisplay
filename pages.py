@@ -262,7 +262,7 @@ class SolarPage(Page):
 		return text
 
 class AcPage(Page):
-	sources = ["Unavailable", "Grid", "Generator", "Shore"]
+	sources = ["", "Grid", "Genset", "Shore"]
 	_volatile = True
 
 	def setup(self, conn, name):
@@ -272,7 +272,8 @@ class AcPage(Page):
 		if name.startswith("com.victronenergy.vebus."):
 			self.track(conn, name, "/Connected", "vebus_connected")
 			self.track(conn, name, "/Ac/ActiveIn/Connected", "ac_available")
-			self.track(conn, name, "/Ac/ActiveIn/P", "ac_power")
+			self.track(conn, name, "/Ac/ActiveIn/P", "ac_power_in")
+			self.track(conn, name, "/Ac/Out/P", "ac_power_out")
 
 	def get_ac_source(self, x):
 		try:
@@ -281,17 +282,21 @@ class AcPage(Page):
 			return self.sources[0]
 
 	def get_text(self, conn):
-		text = [["AC:", "NO DATA"], ["", ""]]
-		if self.cache.vebus_connected == 1:
-			if self.cache.ac_available is not None and self.cache.ac_source is not None:
-				if self.cache.ac_available == 1:
-					text[0][1] = self.get_ac_source(self.cache.ac_source)
-				else:
-					text[0][1] = "n/a"
+		text = [["NO AC DATA", ""], ["", ""]]
+		if self.cache.vebus_connected != 1:
+			return None
 
-				if self.cache.ac_power is not None:
-					text[1][0] = "Power:"
-					text[1][1] = "{:+.0f} W".format(self.cache.ac_power)
+		if self.cache.ac_available is not None and self.cache.ac_source is not None:
+			if self.cache.ac_available == 1:
+				text[0][0] = "{}:".format(self.get_ac_source(self.cache.ac_source))
+				text[0][1] = "{:+.0f} W".format(self.cache.ac_power_in)
+			else:
+				text[0][0] = "AC disconnected"
+				text[0][1] = ""
+
+			if self.cache.ac_power_out is not None:
+				text[1][0] = "Output:"
+				text[1][1] = "{:+.0f} W".format(self.cache.ac_power_out)
 
 		return text
 
@@ -306,15 +311,29 @@ class AcPhasePage(Page):
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
 			self.track(conn, name, "/Ac/ActiveIn/L{}/P".format(self.phase), "ac_power")
-			self.track(conn, name, "/Ac/ActiveIn/L{}/V".format(self.phase), "ac_voltage")
+			self.track(conn, name, "/Ac/ActiveIn/L{}/V".format(self.phase), "ac_voltage_out")
 
 	def get_text(self, conn):
 		if self.cache.ac_power is None:
 			return None
 
-		return [["Phase:", "L{}".format(self.phase)], [
-			"{:+.0f} W".format(self.cache.ac_power),
-			"{:.0f} V".format(self.cache.ac_voltage)]]
+		return [["L{} (in)".format(self.phase),
+				"{:.0f}V".format(self.cache.ac_voltage_out)], [
+				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
+
+class AcOutPhasePage(AcPhasePage):
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.vebus."):
+			self.track(conn, name, "/Ac/Out/L{}/P".format(self.phase), "ac_power")
+			self.track(conn, name, "/Ac/Out/L{}/V".format(self.phase), "ac_voltage_out")
+
+	def get_text(self, conn):
+		if self.cache.ac_power is None:
+			return None
+
+		return [["L{} (out)".format(self.phase),
+				"{:.0f}V".format(self.cache.ac_voltage_out)], [
+				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
 
 class LanPage(Page):
 	def __init__(self):
