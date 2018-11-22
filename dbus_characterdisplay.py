@@ -14,14 +14,16 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, BatteryPage, SolarPage, AcPage, AcPhasePage, AcOutPhasePage
+from pages import StatusPage, ReasonPage, BatteryPage, SolarPage
+from pages import AcPage, AcPhasePage, AcOutPhasePage
 from pages import LanPage, WlanPage, ErrorPage
 
 VERSION = 0.1
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
 
-_screens = [StatusPage(), ErrorPage(), BatteryPage(), SolarPage(), AcPage(),
+_screens = [StatusPage(), ReasonPage(), ErrorPage(),
+	BatteryPage(), SolarPage(), AcPage(),
 	AcPhasePage(1), AcOutPhasePage(1),
 	AcPhasePage(2), AcOutPhasePage(2),
 	AcPhasePage(3), AcOutPhasePage(3),
@@ -146,7 +148,7 @@ def main():
 			ctx.screen = roll_screens(conn, lcd, True)
 			if lcd.on_time > BACKLIGHT_TIMEOUT:
 				lcd.on = False
-		elif ctx.screen is not None and ctx.screen.volatile:
+		elif ctx.screen is not None:
 			# Update the screen text
 			ctx.screen.display(conn, lcd)
 

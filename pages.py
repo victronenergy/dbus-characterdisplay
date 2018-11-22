@@ -43,17 +43,11 @@ def format_line(line):
 
 class Page(object):
 	# Subclasses can override
-	_volatile = False
 	_auto = True
 
 	def __init__(self):
 		self.cache = smart_dict()
 		self.watches = defaultdict(list)
-
-	@property
-	def volatile(self):
-		""" Returns true if this is a screen that should update often. """
-		return self._volatile
 
 	@property
 	def auto(self):
@@ -140,10 +134,10 @@ class Page(object):
 class StatusPage(Page):
 	states = {
         0x00: "Off",
-        0x01: "Low Pwr",
+        0x01: "Low Power",
         0x02: "Fault",
         0x03: "Bulk",
-        0x04: "Absorb",
+        0x04: "Absorption",
         0x05: "Float",
         0x06: "Storage",
         0x07: "Equalize",
@@ -151,16 +145,45 @@ class StatusPage(Page):
         0x09: "Invert",
         0x0A: "Assist",
         0x0B: "Psu",
-        0x100: "Dischrg",
+        0x100: "Discharge",
         0x101: "Sustain",
         0x102: "Recharge",
-        0x103: "Sch Chrg"
+        0x103: "Sched Charge"
 	}
 
+	def __init__(self):
+		super(StatusPage, self).__init__()
+		self.cache.state = None
+		self.cache.systemname = None
 
 	def setup(self, conn, name):
 		if name == "com.victronenergy.system":
 			self.track(conn, name, "/SystemState/State", "state")
+			self.track(conn, name, "/SystemType", "systemtype")
+		if name == "com.victronenergy.settings":
+			self.track(conn, name, "/Settings/SystemSetup/SystemName", "systemname")
+
+	def format(self, text):
+		return "{:^{width}s}".format(text, width=DISPLAY_COLS)
+
+	def get_text(self, conn):
+		# This page always returns something, so that the display always
+		# displays something
+		if self.cache.state is None:
+			# This should only happen if systemcalc is dead
+			return [["Wait..."], ["", ""]]
+
+		return [[self.format(self.cache.systemname or self.cache.systemtype), ""],
+			[self.format(self.states.get(self.cache.state, None) or ""), ""]]
+
+class ReasonPage(StatusPage):
+	def __init__(self):
+		super(ReasonPage, self).__init__()
+		self.cache.systemname = None
+		self.cache.bl = None
+
+	def setup(self, conn, name):
+		if name == "com.victronenergy.system":
 			self.track(conn, name, "/SystemState/BatteryLife", "bl")
 			self.track(conn, name, "/SystemState/ChargeDisabled", "cd")
 			self.track(conn, name, "/SystemState/DischargeDisabled", "dd")
@@ -168,22 +191,32 @@ class StatusPage(Page):
 			self.track(conn, name, "/SystemState/SlowCharge", "sc")
 			self.track(conn, name, "/SystemState/UserChargeLimited", "ucl")
 			self.track(conn, name, "/SystemState/UserDischargeLimited", "udl")
+			self.track(conn, name, "/SystemType", "systemtype")
+		if name == "com.victronenergy.settings":
+			self.track(conn, name, "/Settings/SystemSetup/SystemName", "systemname")
 
 	def get_text(self, conn):
-		text = [["Status:", "NO DATA"], ["Check Connection", ""]]
-		state = self.states.get(self.cache.state, None)
-		if state is not None:
-			text[0][1] = state
+		if self.cache.bl is None:
+			# This should only happen if systemcalc is dead
+			return None
 
 		reasons = ("{:X}".format(reason) for reason, v in izip(count(1), (
 			self.cache.ls, self.cache.bl,
 			self.cache.cd, self.cache.dd, self.cache.sc, self.cache.ucl,
 			self.cache.udl)) if v)
 		reasons = ",".join(reasons)
-		text[1][0] = "#" + reasons if reasons else ""
+		text = "#" + reasons if reasons else ""
 
-		return text
+		# Skip this page if no reasons to display
+		if text:
+			return [[self.format(self.cache.systemname or self.cache.systemtype), ""],
+				[self.format(text), ""]]
+		return None
 
+
+# TODO split this into a vebus errors and mppt errors page
+# Keep track of last error and current one
+# Put in a dictionary of errors and display the text
 class ErrorPage(Page):
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
@@ -193,15 +226,20 @@ class ErrorPage(Page):
 			self.track(conn, name, "/ErrorCode", "mppt_error")
 
 	def get_text(self, conn):
-		if self.cache.vebus_error or self.cache.mppt_error:
-			return [["VE.Bus error:", str(self.cache.vebus_error or 0)],
-				["  MPPT error:", str(self.cache.mppt_error or 0)]]
+		try:
+			if self.cache.vebus_error or self.cache.mppt_error:
+				return [["VE.Bus error:", str(self.cache.vebus_error or 0)],
+					["  MPPT error:", str(self.cache.mppt_error or 0)]]
+		except AttributeError:
+			pass
 
 		# Skip this page if no error
 		return None
 
 class BatteryPage(Page):
-	_volatile = True
+	def __init__(self):
+		super(BatteryPage, self).__init__()
+		self.cache.battery_soc = None
 
 	def setup(self, conn, name):
 		if name == "com.victronenergy.system":
@@ -211,18 +249,19 @@ class BatteryPage(Page):
 
 
 	def get_text(self, conn):
-		text = [["Battery:", "NO DATA"], ["Check Connection", ""]]
-		if self.cache.battery_soc is not None:
-			text[0][1] = "{:.1f} %".format(self.cache.battery_soc)
-			if (self.cache.battery_power is not None):
-				text[1][0] = "{:+.0f} W".format(self.cache.battery_power)
+		if self.cache.battery_soc is None:
+			return None
 
-			if (self.cache.battery_voltage is not None):
-				text[1][1] = "{:.1f} V".format(self.cache.battery_voltage)
+		text = [["Battery:", ""], ["", ""]]
+		text[0][1] = "{:.1f} %".format(self.cache.battery_soc)
+		if (self.cache.battery_power is not None):
+			text[1][0] = "{:+.0f} W".format(self.cache.battery_power)
+
+		if (self.cache.battery_voltage is not None):
+			text[1][1] = "{:.1f} V".format(self.cache.battery_voltage)
 		return text
 
 class SolarPage(Page):
-	_volatile = True
 	mppt_states = {
 		0x00: 'Off',
 		0x03: 'Bulk',
@@ -232,6 +271,10 @@ class SolarPage(Page):
 		0x07: 'Eqlz',
 		0xfc: 'ESS'
 	}
+
+	def __init__(self):
+		super(SolarPage, self).__init__()
+		self.cache.mppt_connected = None
 
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.solarcharger."):
@@ -263,7 +306,10 @@ class SolarPage(Page):
 
 class AcPage(Page):
 	sources = ["", "Grid", "Genset", "Shore"]
-	_volatile = True
+
+	def __init__(self):
+		super(AcPage, self).__init__()
+		self.cache.vebus_connected = None
 
 	def setup(self, conn, name):
 		if name == "com.victronenergy.system":
@@ -301,12 +347,12 @@ class AcPage(Page):
 		return text
 
 class AcPhasePage(Page):
-	_volatile = True
 	_auto = False
 
 	def __init__(self, phase):
 		super(AcPhasePage, self).__init__()
 		self.phase = phase
+		self.cache.ac_power = None
 
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
@@ -322,6 +368,10 @@ class AcPhasePage(Page):
 				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
 
 class AcOutPhasePage(AcPhasePage):
+	def __init__(self, phase):
+		super(AcOutPhasePage, self).__init__(phase)
+		self.cache.ac_power = None
+
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
 			self.track(conn, name, "/Ac/Out/L{}/P".format(self.phase), "ac_power")
