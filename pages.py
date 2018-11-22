@@ -217,24 +217,85 @@ class ReasonPage(StatusPage):
 # TODO split this into a vebus errors and mppt errors page
 # Keep track of last error and current one
 # Put in a dictionary of errors and display the text
-class ErrorPage(Page):
+class VebusErrorPage(Page):
+	errors = {
+		1: "Phase failure",
+		2: "Contact support",
+		3: "Config error",
+		4: "Missing devices",
+		5: "Overvolt AC-Out",
+		6: "Assistant error",
+		7: "VE.Bus BMS error",
+		10: "Time sync error",
+		11: "Relay error",
+		14: "Transmit error",
+		16: "Dongle missing",
+		17: "Master missing",
+		18: "Overvolt AC-Out",
+		22: "Obsolete device",
+		24: "S/O protect",
+		25: "F/W incompatible",
+		26: "Internal error"
+	}
+
+	def __init__(self):
+		super(VebusErrorPage, self).__init__()
+		self.cache.vebus_error = None
+
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
 			self.track(conn, name, "/VebusError", "vebus_error")
 
+	def get_text(self, conn):
+		if self.cache.vebus_error is not None and self.cache.vebus_error > 0:
+			return [["VE.Bus error:", str(self.cache.vebus_error or 0)],
+				[self.errors.get(self.cache.vebus_error, ""), ""]]
+
+		# Skip this page if no error
+		return None
+
+class SolarErrorPage(Page):
+	errors = {
+		2: "V-Bat too high",
+		3: "T-sense fail",
+		4: "T-sense fail",
+		5: "T-sense fail",
+		6: "V-sense fail",
+		7: "V-sense fail",
+		8: "V-sense fail",
+		17: "Overheat",
+		18: "Over-current",
+		20: "Max Bulk",
+		21: "C-sense fail",
+		26: "Terminal o/heat",
+		28: "Power stage",
+		33: "PV overvoltage",
+		34: "PV over-current",
+		38: "PV-in shutdown",
+		39: "PV-in shutdown",
+		65: "Comm. warning",
+		66: "Incompatible dev",
+		67: "BMS lost",
+		114: "CPU hot",
+		116: "Calibration lost",
+		119: "Settings lost"
+	}
+	def __init__(self):
+		super(SolarErrorPage, self).__init__()
+		self.cache.mppt_error = None
+
+	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.solarcharger."):
 			self.track(conn, name, "/ErrorCode", "mppt_error")
 
 	def get_text(self, conn):
-		try:
-			if self.cache.vebus_error or self.cache.mppt_error:
-				return [["VE.Bus error:", str(self.cache.vebus_error or 0)],
-					["  MPPT error:", str(self.cache.mppt_error or 0)]]
-		except AttributeError:
-			pass
+		if self.cache.mppt_error is not None and self.cache.mppt_error > 0:
+			return [["MPPT error:", str(self.cache.mppt_error or 0)],
+				[self.errors.get(self.cache.mppt_error, ""), ""]]
 
 		# Skip this page if no error
 		return None
+
 
 class BatteryPage(Page):
 	def __init__(self):
@@ -364,7 +425,7 @@ class AcPhasePage(Page):
 			return None
 
 		return [["L{} (in)".format(self.phase),
-				"{:.0f}V".format(self.cache.ac_voltage_out)], [
+				"{:.0f} V".format(self.cache.ac_voltage_out)], [
 				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
 
 class AcOutPhasePage(AcPhasePage):
@@ -382,7 +443,7 @@ class AcOutPhasePage(AcPhasePage):
 			return None
 
 		return [["L{} (out)".format(self.phase),
-				"{:.0f}V".format(self.cache.ac_voltage_out)], [
+				"{:.0f} V".format(self.cache.ac_voltage_out)], [
 				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
 
 class LanPage(Page):

@@ -16,13 +16,13 @@ import lcddriver
 from cache import smart_dict
 from pages import StatusPage, ReasonPage, BatteryPage, SolarPage
 from pages import AcPage, AcPhasePage, AcOutPhasePage
-from pages import LanPage, WlanPage, ErrorPage
+from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage
 
 VERSION = 0.1
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
 
-_screens = [StatusPage(), ReasonPage(), ErrorPage(),
+_screens = [StatusPage(), ReasonPage(), VebusErrorPage(), SolarErrorPage(),
 	BatteryPage(), SolarPage(), AcPage(),
 	AcPhasePage(1), AcOutPhasePage(1),
 	AcPhasePage(2), AcOutPhasePage(2),
