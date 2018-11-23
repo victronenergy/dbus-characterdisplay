@@ -4,6 +4,7 @@ FILES = \
 	dbus_characterdisplay.py \
 	cache.py \
 	lcddriver.py \
+	track.py \
 	pages.py
 
 help:
