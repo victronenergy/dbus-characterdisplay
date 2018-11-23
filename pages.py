@@ -159,6 +159,48 @@ class ReasonPage(StatusPage):
 		return None
 
 
+class VebusAlarmsPage(Page):
+	alarms = {
+		"HighTemperature": "High temp",
+		"LowBattery": "Low battery",
+		"Overload": "Overload",
+		"Ripple": "High ripple",
+		"TemperatureSensor": "Temp Sense",
+		"VoltageSensor": "Volt sense",
+	}
+	def __init__(self):
+		super(VebusAlarmsPage, self).__init__()
+
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.vebus."):
+			for phase in xrange(1, 4):
+				for alarm in ("HighTemperature", "LowBattery",
+						"Overload", "Ripple"):
+					path = "/Alarms/L{}/{}".format(phase, alarm)
+					self.track(conn, name, path, path)
+			for alarm in ("TemperatureSensor", "VoltageSensor"):
+				path = "/Alarms/{}".format(alarm)
+				self.track(conn, name, path, path)
+				self.track(conn, name, path, path)
+
+	def get_text(self, conn):
+		alarms = []
+		for alarm in ("HighTemperature", "LowBattery",
+					"Overload", "Ripple"):
+			paths = ["/Alarms/L{}/{}".format(phase, alarm) for phase in xrange(1, 4)]
+			if any((self.cache.get(p, None) for p in paths)):
+				alarms.append(alarm)
+
+		for alarm in ("TemperatureSensor", "VoltageSensor"):
+			if self.cache.get("/Alarms/{}".format(alarm), None):
+				alarms.append(alarm)
+
+		if alarms:
+			return [["Alarm:", ""], [self.alarms.get(alarms[0], ""), ""]]
+
+		return None
+
+
 class VebusErrorPage(Page):
 	errors = {
 		1: "Phase failure",
