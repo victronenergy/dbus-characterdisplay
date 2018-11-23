@@ -22,8 +22,8 @@ VERSION = 0.1
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
 
-_screens = [StatusPage(), ReasonPage(), VebusErrorPage(), SolarErrorPage(),
-	BatteryPage(), SolarPage(), AcPage(),
+_screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
+	SolarErrorPage(), BatteryPage(), SolarPage(), AcPage(),
 	AcPhasePage(1), AcOutPhasePage(1),
 	AcPhasePage(2), AcOutPhasePage(2),
 	AcPhasePage(3), AcOutPhasePage(3),

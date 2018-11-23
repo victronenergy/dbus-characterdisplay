@@ -159,9 +159,6 @@ class ReasonPage(StatusPage):
 		return None
 
 
-# TODO split this into a vebus errors and mppt errors page
-# Keep track of last error and current one
-# Put in a dictionary of errors and display the text
 class VebusErrorPage(Page):
 	errors = {
 		1: "Phase failure",
@@ -198,6 +195,7 @@ class VebusErrorPage(Page):
 
 		# Skip this page if no error
 		return None
+
 
 class SolarErrorPage(Page):
 	errors = {

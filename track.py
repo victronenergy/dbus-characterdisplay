@@ -19,7 +19,7 @@ class Tracker(object):
 
 		return val
 
-	def update_cache(self, key, v):
+	def update_cache(self, callback, key, v):
 		if isinstance(v, dbus.Dictionary):
 			value = v["Value"]
 		elif isinstance(v, dbus.Array):
@@ -30,7 +30,9 @@ class Tracker(object):
 		if isinstance(value, dbus.Array):
 			value = None
 
-		self.cache[key] = self.unwrap_dbus_value(value)
+		self.cache[key] = v = self.unwrap_dbus_value(value)
+		if callback is not None:
+			callback(v)
 
 	def query(self, conn, service, path):
 		try:
@@ -38,14 +40,14 @@ class Tracker(object):
 		except:
 			return None
 
-	def track(self, conn, service, path, target):
+	def track(self, conn, service, path, target, callback=None):
 
 		# Initialise cache values
-		self.update_cache(target, self.query(conn, service, path))
+		self.update_cache(callback, target, self.query(conn, service, path))
 
 		# If there are values on dbus update cache after property change
 		self.watches[service].append((target, conn.add_signal_receiver(
-			partial(self.update_cache, target),
+			partial(self.update_cache, callback, target),
 			dbus_interface='com.victronenergy.BusItem',
 			signal_name='PropertiesChanged',
 			path=path,
@@ -56,5 +58,5 @@ class Tracker(object):
 		if name in self.watches:
 			for target, w in self.watches[name]:
 				w.remove()
-				self.update_cache(target, None)
+				self.update_cache(None, target, None)
 			del self.watches[name]
