@@ -140,10 +140,6 @@ def main():
 		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
 
 	def tick(ctx):
-		# No need to update if the backlight is off
-		if not lcd.on:
-			return True
-
 		if ctx.count == 0:
 			ctx.screen = roll_screens(conn, lcd, True)
 			if lcd.on_time > BACKLIGHT_TIMEOUT:
