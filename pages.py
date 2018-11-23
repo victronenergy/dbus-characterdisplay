@@ -173,7 +173,7 @@ class StatusPage(Page):
 			# This should only happen if systemcalc is dead
 			return [["Wait..."], ["", ""]]
 
-		return [[self.format(self.cache.systemname or self.cache.systemtype), ""],
+		return [[self.format(self.cache.systemname or self.cache.systemtype or "Status"), ""],
 			[self.format(self.states.get(self.cache.state, None) or ""), ""]]
 
 class ReasonPage(StatusPage):
@@ -209,7 +209,7 @@ class ReasonPage(StatusPage):
 
 		# Skip this page if no reasons to display
 		if text:
-			return [[self.format(self.cache.systemname or self.cache.systemtype), ""],
+			return [[self.format(self.cache.systemname or self.cache.systemtype or "Status"), ""],
 				[self.format(text), ""]]
 		return None
 
