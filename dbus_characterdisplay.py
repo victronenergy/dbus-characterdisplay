@@ -14,7 +14,7 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, ReasonPage, BatteryPage, SolarPage
+from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage
 from pages import AcPage, AcPhasePage, AcOutPhasePage
 from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarmsPage
 
@@ -28,6 +28,7 @@ _screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
 	AcPhasePage(2), AcOutPhasePage(2),
 	AcPhasePage(3), AcOutPhasePage(3),
 	BatteryPage(), SolarPage(), SolarErrorPage(),
+	SolarHistoryPage(0), SolarHistoryPage(1),
 	LanPage(), WlanPage()]
 
 class cycle(object):

@@ -350,6 +350,32 @@ class SolarPage(Page):
 
 		return text
 
+class SolarHistoryPage(Page):
+	_auto = False
+
+	days = {
+		0: "Today",
+		1: "Yesterday"
+	}
+
+	def __init__(self, day):
+		super(SolarHistoryPage, self).__init__()
+		self.cache._yield = None
+		self.day = day
+
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.solarcharger."):
+			self.track(conn, name, "/History/Daily/{}/Yield".format(self.day), "_yield")
+
+	def get_text(self, conn):
+		if not self.cache._yield:
+			return None
+
+		return [["Yield", self.days[self.day]],
+			["{:0.2f} KWh".format(self.cache._yield), ""]]
+
+		return text
+
 class AcPage(Page):
 	sources = ["", "Grid", "Genset", "Shore"]
 
