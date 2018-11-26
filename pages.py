@@ -77,27 +77,26 @@ class Page(Tracker):
 		return True
 
 class StatusPage(Page):
-	states = {
-        0x00: "Off",
-        0x01: "Low Power",
-        0x02: "Fault",
-        0x03: "Bulk",
-        0x04: "Absorption",
-        0x05: "Float",
-        0x06: "Storage",
-        0x07: "Equalize",
-        0x08: "Passthru",
-        0x09: "Invert",
-        0x0A: "Assist",
-        0x0B: "Psu",
-        0x100: "Discharge",
-        0x101: "Sustain",
-        0x102: "Recharge",
-        0x103: "Sched Charge"
-	}
-
 	def __init__(self):
 		super(StatusPage, self).__init__()
+		self.states = {
+			0x00: _("Off"),
+			0x01: _("Low Power"),
+			0x02: _("Fault"),
+			0x03: _("Bulk"),
+			0x04: _("Absorption"),
+			0x05: _("Float"),
+			0x06: _("Storage"),
+			0x07: _("Equalize"),
+			0x08: _("Passthru"),
+			0x09: _("Invert"),
+			0x0A: _("Assist"),
+			0x0B: _("Psu"),
+			0x100: _("Discharge"),
+			0x101: _("Sustain"),
+			0x102: _("Recharge"),
+			0x103: _("Sched Charge")
+		}
 		self.cache.state = None
 		self.cache.systemname = None
 
@@ -160,16 +159,16 @@ class ReasonPage(StatusPage):
 
 
 class VebusAlarmsPage(Page):
-	alarms = {
-		"HighTemperature": "High temp",
-		"LowBattery": "Low battery",
-		"Overload": "Overload",
-		"Ripple": "High ripple",
-		"TemperatureSensor": "Temp Sense",
-		"VoltageSensor": "Volt sense",
-	}
 	def __init__(self):
 		super(VebusAlarmsPage, self).__init__()
+		self.alarms = {
+			"HighTemperature": _("High temp"),
+			"LowBattery": _("Low battery"),
+			"Overload": _("Overload"),
+			"Ripple": _("High ripple"),
+			"TemperatureSensor": _("Temp Sense"),
+			"VoltageSensor": _("Volt sense"),
+		}
 
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
@@ -202,28 +201,27 @@ class VebusAlarmsPage(Page):
 
 
 class VebusErrorPage(Page):
-	errors = {
-		1: "Phase failure",
-		2: "Contact support",
-		3: "Config error",
-		4: "Missing devices",
-		5: "Overvolt AC-Out",
-		6: "Assistant error",
-		7: "VE.Bus BMS error",
-		10: "Time sync error",
-		11: "Relay error",
-		14: "Transmit error",
-		16: "Dongle missing",
-		17: "Master missing",
-		18: "Overvolt AC-Out",
-		22: "Obsolete device",
-		24: "S/O protect",
-		25: "F/W incompatible",
-		26: "Internal error"
-	}
-
 	def __init__(self):
 		super(VebusErrorPage, self).__init__()
+		self.errors = {
+			1: _("Phase failure"),
+			2: _("Contact support"),
+			3: _("Config error"),
+			4: _("Missing devices"),
+			5: _("Overvolt AC-Out"),
+			6: _("Assistant error"),
+			7: _("VE.Bus BMS error"),
+			10: _("Time sync error"),
+			11: _("Relay error"),
+			14: _("Transmit error"),
+			16: _("Dongle missing"),
+			17: _("Master missing"),
+			18: _("Overvolt AC-Out"),
+			22: _("Obsolete device"),
+			24: _("S/O protect"),
+			25: _("F/W incompatible"),
+			26: _("Internal error")
+		}
 		self.cache.vebus_error = None
 
 	def setup(self, conn, name):
@@ -232,7 +230,7 @@ class VebusErrorPage(Page):
 
 	def get_text(self, conn):
 		if self.cache.vebus_error is not None and self.cache.vebus_error > 0:
-			return [["VE.Bus error:", str(self.cache.vebus_error or 0)],
+			return [[_("VE.Bus error") + ":", str(self.cache.vebus_error or 0)],
 				[self.errors.get(self.cache.vebus_error, ""), ""]]
 
 		# Skip this page if no error
@@ -240,33 +238,33 @@ class VebusErrorPage(Page):
 
 
 class SolarErrorPage(Page):
-	errors = {
-		2: "V-Bat too high",
-		3: "T-sense fail",
-		4: "T-sense fail",
-		5: "T-sense fail",
-		6: "V-sense fail",
-		7: "V-sense fail",
-		8: "V-sense fail",
-		17: "Overheat",
-		18: "Over-current",
-		20: "Max Bulk",
-		21: "C-sense fail",
-		26: "Terminal o/heat",
-		28: "Power stage",
-		33: "PV overvoltage",
-		34: "PV over-current",
-		38: "PV-in shutdown",
-		39: "PV-in shutdown",
-		65: "Comm. warning",
-		66: "Incompatible dev",
-		67: "BMS lost",
-		114: "CPU hot",
-		116: "Calibration lost",
-		119: "Settings lost"
-	}
 	def __init__(self):
 		super(SolarErrorPage, self).__init__()
+		self.errors = {
+			2: _("V-Bat too high"),
+			3: _("T-sense fail"),
+			4: _("T-sense fail"),
+			5: _("T-sense fail"),
+			6: _("V-sense fail"),
+			7: _("V-sense fail"),
+			8: _("V-sense fail"),
+			17: _("Overheat"),
+			18: _("Over-current"),
+			20: _("Max Bulk"),
+			21: _("C-sense fail"),
+			26: _("Terminal o/heat"),
+			28: _("Power stage"),
+			33: _("PV overvoltage"),
+			34: _("PV over-current"),
+			38: _("PV-in shutdown"),
+			39: _("PV-in shutdown"),
+			65: _("Comm. warning"),
+			66: _("Incompatible dev"),
+			67: _("BMS lost"),
+			114: _("CPU hot"),
+			116: _("Calibration lost"),
+			119: _("Settings lost")
+		}
 		self.cache.mppt_error = None
 
 	def setup(self, conn, name):
@@ -275,7 +273,7 @@ class SolarErrorPage(Page):
 
 	def get_text(self, conn):
 		if self.cache.mppt_error is not None and self.cache.mppt_error > 0:
-			return [["MPPT error:", str(self.cache.mppt_error or 0)],
+			return [[_("MPPT error") + ":", str(self.cache.mppt_error or 0)],
 				[self.errors.get(self.cache.mppt_error, ""), ""]]
 
 		# Skip this page if no error
@@ -298,7 +296,7 @@ class BatteryPage(Page):
 		if self.cache.battery_soc is None:
 			return None
 
-		text = [["Battery:", ""], ["", ""]]
+		text = [[_("Battery") + ":", ""], ["", ""]]
 		text[0][1] = "{:.1f} %".format(self.cache.battery_soc)
 		if (self.cache.battery_power is not None):
 			text[1][0] = "{:+.0f} W".format(self.cache.battery_power)
@@ -308,18 +306,17 @@ class BatteryPage(Page):
 		return text
 
 class SolarPage(Page):
-	mppt_states = {
-		0x00: 'Off',
-		0x03: 'Bulk',
-		0x04: 'Absorb',
-		0x05: 'Float',
-		0x06: 'Storage',
-		0x07: 'Eqlz',
-		0xfc: 'ESS'
-	}
-
 	def __init__(self):
 		super(SolarPage, self).__init__()
+		self.mppt_states = {
+			0x00: _('Off'),
+			0x03: _('Bulk'),
+			0x04: _('Absorb'),
+			0x05: _('Float'),
+			0x06: _('Storage'),
+			0x07: _('Eqlz'),
+			0xfc: _('ESS')
+		}
 		self.cache.mppt_connected = None
 
 	def setup(self, conn, name):
@@ -335,7 +332,7 @@ class SolarPage(Page):
 		if not self.cache.mppt_connected:
 			return None
 
-		text = [["Solar:", "unknown"], ["", ""]]
+		text = [[_("Solar") + ":", "unknown"], ["", ""]]
 		if self.cache.mppt_state is not None:
 			try:
 				text[0][1] = self.mppt_states[self.cache.mppt_state]
@@ -353,13 +350,12 @@ class SolarPage(Page):
 class SolarHistoryPage(Page):
 	_auto = False
 
-	days = {
-		0: "Today",
-		1: "Yesterday"
-	}
-
 	def __init__(self, day):
 		super(SolarHistoryPage, self).__init__()
+		self.days = {
+			0: _("Today"),
+			1: _("Yesterday")
+		}
 		self.cache._yield = None
 		self.day = day
 
@@ -371,7 +367,7 @@ class SolarHistoryPage(Page):
 		if not self.cache._yield:
 			return None
 
-		return [["Yield", self.days[self.day]],
+		return [[_("Yield"), self.days[self.day]],
 			["{:0.2f} KWh".format(self.cache._yield), ""]]
 
 		return text
@@ -409,11 +405,11 @@ class AcPage(Page):
 				text[0][0] = "{}:".format(self.get_ac_source(self.cache.ac_source))
 				text[0][1] = "{:+.0f} W".format(self.cache.ac_power_in)
 			else:
-				text[0][0] = "AC disconnected"
+				text[0][0] = _("AC disconnected")
 				text[0][1] = ""
 
 			if self.cache.ac_power_out is not None:
-				text[1][0] = "Output:"
+				text[1][0] = _("Output") + ":"
 				text[1][1] = "{:+.0f} W".format(self.cache.ac_power_out)
 
 		return text
@@ -435,9 +431,9 @@ class AcPhasePage(Page):
 		if self.cache.ac_power is None:
 			return None
 
-		return [["L{} (in)".format(self.phase),
+		return [["L{} (".format(self.phase) +_("in") + ")",
 				"{:.0f} V".format(self.cache.ac_voltage_out)], [
-				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
+				_("Power") + ":", "{:+.0f} W".format(self.cache.ac_power)]]
 
 class AcOutPhasePage(AcPhasePage):
 	def __init__(self, phase):
@@ -453,9 +449,9 @@ class AcOutPhasePage(AcPhasePage):
 		if self.cache.ac_power is None:
 			return None
 
-		return [["L{} (out)".format(self.phase),
+		return [["L{} (".format(self.phase) + _("out") + ")",
 				"{:.0f} V".format(self.cache.ac_voltage_out)], [
-				"Power:", "{:+.0f} W".format(self.cache.ac_power)]]
+				_("Power") + ":", "{:+.0f} W".format(self.cache.ac_power)]]
 
 class LanPage(Page):
 	def __init__(self):
@@ -483,8 +479,8 @@ class LanPage(Page):
 		return text
 
 	def get_text(self, conn):
-		return self._get_text(conn, "LAN IP:", "ethernet")
+		return self._get_text(conn, _("LAN IP") + ":", "ethernet")
 
 class WlanPage(LanPage):
 	def get_text(self, conn):
-		return self._get_text(conn, "WIFI IP:", "wifi")
+		return self._get_text(conn, _("WIFI IP") + ":", "wifi")

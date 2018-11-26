@@ -30,4 +30,10 @@ testinstall:
 	(cd $(TMP) && ./dbus_characterdisplay.py --help > /dev/null)
 	-rm -rf $(TMP)
 
+%.mo: %.po
+	msgfmt -o $@ $<
+
+lang/messages.pot:
+	pygettext --output-dir=lang pages.py
+
 .PHONY: help install_app install clean distclean testinstall

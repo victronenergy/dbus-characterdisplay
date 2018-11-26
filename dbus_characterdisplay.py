@@ -4,10 +4,12 @@ import time
 import signal
 import sys
 import logging
-from os.path import basename
+from os.path import basename, dirname, abspath
+from os.path import join as pathjoin
 from argparse import ArgumentParser
 from functools import partial
 from itertools import izip
+import gettext
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from evdev import InputDevice, ecodes
@@ -21,6 +23,10 @@ from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarms
 VERSION = 0.1
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
+
+# Set up i18n
+gettext.install("messages",
+	pathjoin(dirname(abspath(__file__)), "lang"), unicode=True)
 
 _screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
 	VebusAlarmsPage(), AcPage(),
