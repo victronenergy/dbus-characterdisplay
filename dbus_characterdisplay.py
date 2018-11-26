@@ -20,7 +20,7 @@ from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPa
 from pages import AcPage, AcPhasePage, AcOutPhasePage
 from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarmsPage
 
-VERSION = 0.1
+VERSION = 0.2
 ROLL_TIMEOUT = 5
 BACKLIGHT_TIMEOUT = 300
 
