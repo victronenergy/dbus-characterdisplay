@@ -230,7 +230,7 @@ class VebusErrorPage(Page):
 
 	def get_text(self, conn):
 		if self.cache.vebus_error is not None and self.cache.vebus_error > 0:
-			return [[_("VE.Bus error") + ":", str(self.cache.vebus_error or 0)],
+			return [[_("VE.Bus error") + ":", '#'+str(self.cache.vebus_error or 0)],
 				[self.errors.get(self.cache.vebus_error, ""), ""]]
 
 		# Skip this page if no error
@@ -273,7 +273,7 @@ class SolarErrorPage(Page):
 
 	def get_text(self, conn):
 		if self.cache.mppt_error is not None and self.cache.mppt_error > 0:
-			return [[_("MPPT error") + ":", str(self.cache.mppt_error or 0)],
+			return [[_("MPPT error") + ":", '#'+str(self.cache.mppt_error or 0)],
 				[self.errors.get(self.cache.mppt_error, ""), ""]]
 
 		# Skip this page if no error
