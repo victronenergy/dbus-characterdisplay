@@ -1,4 +1,5 @@
 import sys
+import subprocess
 import os
 from time import time
 
@@ -47,9 +48,10 @@ class Lcd(object):
 		return max(0, time() - self._turned_on)
 
 	def splash(self):
+		product = subprocess.check_output(["product-name"]).strip()
 		self.on = True
 		self.display_string(' Victron Energy ', 1)
-		self.display_string('   EasySolar    ', 2)
+		self.display_string(product.center(16), 2)
 
 class DebugLcd(Lcd):
 	def __init__(self):
