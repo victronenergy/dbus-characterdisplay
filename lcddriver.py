@@ -2,6 +2,7 @@ import sys
 import subprocess
 import os
 from time import time
+import gobject
 
 # commands
 LCD_CLEARDISPLAY = '\014'
@@ -24,6 +25,7 @@ class Lcd(object):
 	def __init__(self, lcd_dev):
 		self.lcd = os.open(lcd_dev, os.O_WRONLY)
 		self._backlight_on = True
+		self._flashing = False
 		self._turned_on = time()
 
 		# Add icons
@@ -33,6 +35,9 @@ class Lcd(object):
 		self.write(ICON_RIGHT)
 		self.write(ICON_BAT)
 		self.write(ICON_ALARM)
+
+		# Create a timer for backlight flashing
+		gobject.timeout_add(500, self._flash)
 
 	def write(self, data):
 		os.write(self.lcd, data)
@@ -62,6 +67,22 @@ class Lcd(object):
 			self.write(LCD_BACKLIGHT_ON)
 		else:
 			self.write(LCD_BACKLIGHT_OFF)
+
+	@property
+	def flashing(self):
+		return self._flashing
+
+	@flashing.setter
+	def flashing(self, v):
+		self._flashing = bool(v)
+		if not (self._flashing and self.on):
+			# Leave the screen on when we stop flashing
+			self.on = True
+
+	def _flash(self):
+		if self._flashing:
+			self.on = not self.on
+		return True
 
 	@property
 	def on_time(self):
