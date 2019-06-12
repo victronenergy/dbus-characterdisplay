@@ -16,26 +16,26 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage
-from pages import AcPage, AcPhasePage, AcOutPhasePage
-from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarmsPage
+from track import Tracker
+from pages import BatteryPage, SolarPage
+from pages import AcSinglePhaseInPage, AcSinglePhaseOutPage
+from pages import AcMultiPhaseVoltageInPage, AcMultiPhaseVoltageOutPage
+from pages import AcMultiPhaseCurrentInPage, AcMultiPhaseCurrentOutPage
+from pages import LanPage, WlanPage
+from pages import InverterInfoPage, PVInfoPage
 
 VERSION = 0.4
-ROLL_TIMEOUT = 5
+ROLL_TIMEOUT = 5        # How quickly to roll over to a new screen
+IDLE_TIMEOUT = 300      # How long to remain on a selected screen once buttons were used
 BACKLIGHT_TIMEOUT = 300
 
 # Set up i18n
 gettext.install("messages",
 	pathjoin(dirname(abspath(__file__)), "lang"), unicode=True)
 
-_screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
-	VebusAlarmsPage(), AcPage(),
-	AcPhasePage(1), AcOutPhasePage(1),
-	AcPhasePage(2), AcOutPhasePage(2),
-	AcPhasePage(3), AcOutPhasePage(3),
-	BatteryPage(), SolarPage(), SolarErrorPage(),
-	SolarHistoryPage(0), SolarHistoryPage(1),
-	LanPage(), WlanPage()]
+_screens = [InverterInfoPage(), PVInfoPage(), AcSinglePhaseInPage(), AcSinglePhaseOutPage(),
+	AcMultiPhaseVoltageInPage(), AcMultiPhaseVoltageOutPage(), AcMultiPhaseCurrentInPage(),
+	AcMultiPhaseCurrentOutPage(), SolarPage(), BatteryPage(), LanPage(), WlanPage()]
 
 class cycle(object):
 	""" Cyclical list-iterator that can be reset. """
@@ -98,6 +98,10 @@ def main():
 	# Show spash screen while initialization
 	lcd.splash()
 
+	# Attach to settings we care about
+	settings = Tracker()
+	settings.track(conn, "com.victronenergy.settings", "/Settings/Gui/DisplayOff", "displayoff")
+
 	# Handle services that are already up
 	for name in conn.list_names():
 		if name.startswith("com.victronenergy."):
@@ -134,7 +138,7 @@ def main():
 					# If backlight is off, turn it on
 					if lcd.on:
 						# When buttons are used, stay on selected screen longer
-						ctx.count = ROLL_TIMEOUT * 6
+						ctx.count = IDLE_TIMEOUT
 					else:
 						# Except when the backlight was off, then normal timeout.
 						ctx.count = ROLL_TIMEOUT
@@ -150,7 +154,7 @@ def main():
 	def tick(ctx):
 		if ctx.count == 0:
 			ctx.screen = roll_screens(conn, lcd, True)
-			if lcd.on_time > BACKLIGHT_TIMEOUT:
+			if lcd.on_time > settings.cache.displayoff:
 				lcd.on = False
 		elif ctx.screen is not None:
 			# Update the screen text
