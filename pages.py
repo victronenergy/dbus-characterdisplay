@@ -1,13 +1,13 @@
 import logging
-from functools import partial
-from itertools import count, izip
-from collections import defaultdict, Iterable
-from cache import smart_dict
+from itertools import izip, cycle, islice
+from collections import namedtuple, deque
 from track import Tracker
 import dbus
 
 DISPLAY_COLS = 16
 DISPLAY_ROWS = 2
+
+Notification = namedtuple('Notification', ['type', 'device', 'message'])
 
 def get_ipparams(conn, interface):
 	# Fetch IP params from conmann dbus for given interface (ethernet, wifi)
@@ -41,6 +41,22 @@ def format_line(line):
 				return ("{}{:>{}}").format(line[0], line[1], pad)
 
 	return " "*DISPLAY_COLS
+
+class Marquee(object):
+	def __init__(self, s, size, pad=0):
+		# Add some space so the screen clears before it restarts
+		self.size = size # window size
+		if len(s) > size:
+			content = s + ' '*(pad+1)
+			self.content = cycle(content)
+		else:
+			self.content = content = s
+		self.slide = len(content) + 1
+
+	def __str__(self):
+		s = "{:{size}.{size}s}".format(''.join(islice(self.content, self.slide)), size=self.size)
+		return s
+
 
 class TrackInstance(type):
 	""" Enforces singleton behaviour on a class.  Adds a `instance` attribute
@@ -427,6 +443,44 @@ class AcMultiPhaseCurrentOutPage(AcMultiPhaseCurrentInPage):
 	@property
 	def data(self):
 		return AcMultiPhaseVoltageOutPage.instance
+
+class NotificationsPage(Page):
+	def __init__(self):
+		super(NotificationsPage, self).__init__()
+		self.notices = deque()
+
+	def setup(self, conn, name):
+		if name == "com.victronenergy.notifications":
+			self.notifications_watch = conn.add_signal_receiver(self.add_notification,
+				dbus_interface='com.victronenergy.Notifications',
+				signal_name='notify', path='/', bus_name=name)
+
+	def add_notification(self, _type, device, description, value):
+		pad = len(device) - len(description)
+		self.notices.append(Notification(_type,
+			Marquee(device, DISPLAY_COLS-1, max(0, -pad)),
+			Marquee(description, DISPLAY_COLS, max(0, pad))))
+
+	def display(self, conn, lcd):
+		if self.notices:
+			notice = self.notices[0]
+			lcd.flashing = True
+			lcd.home()
+			lcd.write("\005" + str(notice.device) + "\n")
+			lcd.write(str(notice.message))
+		return True
+
+	def keypress(self, ctx, evt):
+		if self.notices:
+			self.notices.popleft()
+			if len(self.notices) > 0:
+				self.display(None, ctx.lcd)
+				return True
+			else:
+				# TODO We popped the last one, send acknowledge
+				pass
+
+		return False
 
 class LanPage(Page):
 	def __init__(self):

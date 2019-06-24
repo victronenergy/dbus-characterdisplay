@@ -23,6 +23,7 @@ from pages import AcMultiPhaseVoltageInPage, AcMultiPhaseVoltageOutPage
 from pages import AcMultiPhaseCurrentInPage, AcMultiPhaseCurrentOutPage
 from pages import LanPage, WlanPage
 from pages import InverterInfoPage, PVInfoPage
+from pages import NotificationsPage
 
 VERSION = 0.4
 ROLL_TIMEOUT = 5        # How quickly to roll over to a new screen
@@ -35,7 +36,7 @@ gettext.install("messages",
 
 _screens = [InverterInfoPage(), PVInfoPage(), AcSinglePhaseInPage(), AcSinglePhaseOutPage(),
 	AcMultiPhaseVoltageInPage(), AcMultiPhaseVoltageOutPage(), AcMultiPhaseCurrentInPage(),
-	AcMultiPhaseCurrentOutPage(), SolarPage(), BatteryPage(), LanPage(), WlanPage()]
+	AcMultiPhaseCurrentOutPage(), SolarPage(), BatteryPage(), LanPage(), WlanPage(), NotificationsPage()]
 
 class cycle(object):
 	""" Cyclical list-iterator that can be reset. """
