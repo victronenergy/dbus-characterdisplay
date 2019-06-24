@@ -2,6 +2,7 @@
 
 import sys
 import logging
+from os import environ
 from os.path import basename, dirname, abspath
 from os.path import join as pathjoin
 from argparse import ArgumentParser
@@ -59,12 +60,13 @@ def main():
 	DBusGMainLoop(set_as_default=True)
 
 	# Initialize dbus connector
-	conn = dbus.SystemBus()
+	conn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 
 	# Get LCD display handler
 	lcd = lcddriver.DebugLcd() if args.debug else lcddriver.Lcd(args.lcd)
 
 	# Show spash screen while initialization
+	lcd.clear()
 	lcd.splash()
 
 	# Handle services that are already up
@@ -89,9 +91,22 @@ def main():
 	try:
 		kbd = InputDevice("/dev/input/by-path/platform-disp_keys-event")
 	except OSError:
-		kbd = None
+		if args.debug:
+			import termios
+			from evdev.events import InputEvent
+			class DebugKeyboard(object):
+				fd = sys.stdin
+				def read(self):
+					termios.tcflush(sys.stdin, termios.TCIFLUSH)
+					return (InputEvent(0, 0, ecodes.EV_KEY, ecodes.KEY_LEFT, 1),)
+			kbd = DebugKeyboard()
+		else:
+			kbd = None
 
-	has_four_buttons = subprocess.check_output(["/usr/bin/board-compat"]).strip() in FOUR_BUTTON_DEVICES
+	try:
+		has_four_buttons = subprocess.check_output(["/usr/bin/board-compat"]).strip() in FOUR_BUTTON_DEVICES
+	except OSError:
+		has_four_buttons = False
 
 	if has_four_buttons:
 		ui_handler = FourButtonUserInterface(lcd, conn, kbd, _screens)

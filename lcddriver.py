@@ -56,12 +56,6 @@ class Lcd(object):
 			pass
 		return True
 
-	def splash(self):
-		product = subprocess.check_output(["product-name"]).strip()
-		self.on = True
-		self.display_string(' Victron Energy ', 1)
-		self.display_string(product.center(16), 2)
-
 	@property
 	def flashing(self):
 		return self._flashing
@@ -78,23 +72,53 @@ class Lcd(object):
 			self.on = not self.on
 		return True
 
+	def splash(self):
+		try:
+			product = subprocess.check_output(["product-name"]).strip()
+		except OSError:
+			product = "---"
+		self.on = True
+		self.write(' Victron Energy \n' + product.center(16))
+
 class DebugLcd(Lcd):
 	def __init__(self):
-		pass
+		self._backlight_on = True
+		self._flashing = False
+		self.lcd = sys.stdout.fileno()
 
-	def display_string(self, string, line):
-		if line == 1:
-			print '|' + '-'*16 + '|'
-		print '|' + string + '|'
+	def write(self, data):
+		import re
+		os.write(self.lcd, '\033[0m')
+		# Set blinking to indicate flashing
+		if self._flashing:
+			os.write(self.lcd, '\033[5m')
+		else:
+			if self._backlight_on:
+				os.write(self.lcd, '\033[1m')
+			else:
+				os.write(self.lcd, '\033[2m')
+		os.write(self.lcd, re.sub('[\000\001\002\003\004\005]', '&', data))
+
+	def home(self):
+		self.write(LCD_RETURNHOME)
 
 	@property
 	def on(self):
-		pass
+		return self._backlight_on
 
 	@on.setter
 	def on(self, v):
-		pass
+		self._backlight_on = bool(v)
 
 	@property
 	def daylight(self):
 		return True
+
+	def clear(self):
+		# VT100 clear sequence
+		self.write('\033[3J\033[H\033[2J')
+
+	def display_string(self, string, line):
+		# VT100 sequence for goto-XY
+		self.write('\033[{};{}f'.format(line, 1))
+		self.write(string)
