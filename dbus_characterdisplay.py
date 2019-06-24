@@ -138,7 +138,7 @@ def main():
 			kbd = None
 
 	# Context object for event handlers
-	ctx = smart_dict({'count': ROLL_TIMEOUT, 'kbd': kbd, 'screen': None})
+	ctx = smart_dict({'dbus': conn, 'lcd': lcd, 'count': ROLL_TIMEOUT, 'kbd': kbd, 'screen': None})
 
 	if kbd is not None:
 		def keypress(fd, condition, ctx):
@@ -156,7 +156,8 @@ def main():
 						lcd.on = True
 						screens.reset()
 
-					ctx.screen = roll_screens(conn, lcd, False)
+					if ctx.screen is None or not ctx.screen.keypress(ctx, event):
+						ctx.screen = roll_screens(conn, lcd, False)
 
 			return True
 
