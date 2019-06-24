@@ -89,33 +89,41 @@ class Lcd(object):
 		return max(0, time() - self._turned_on)
 
 	def splash(self):
-		product = subprocess.check_output(["product-name"]).strip()
+		try:
+			product = subprocess.check_output(["product-name"]).strip()
+		except OSError:
+			product = "---"
 		self.on = True
-		self.display_string(' Victron Energy ', 1)
-		self.display_string(product.center(16), 2)
+		self.write(' Victron Energy \n' + product.center(16))
 
 class DebugLcd(Lcd):
+	FIFO = '/tmp/chardisp'
 	def __init__(self):
-		pass
-
-	def display_string(self, string, line):
-		if line == 1:
-			print '|' + '-'*16 + '|'
-		print '|' + string + '|'
-
-	def home(self):
-		pass
+		self._backlight_on = True
+		self._flashing = False
+		self._turned_on = time()
+		self.lcd = sys.stdout.fileno()
 
 	def write(self, data):
-		print data
+		import re
+		os.write(self.lcd, re.sub('[\000\001\002\003\004\005]', '&', data))
+
+	def home(self):
+		self.write(LCD_RETURNHOME)
 
 	@property
 	def on(self):
-		pass
+		return self._backlight_on
 
 	@on.setter
 	def on(self, v):
-		pass
+		self._backlight_on = bool(v)
 
 	def clear(self):
-		pass
+		# VT100 clear sequence
+		self.write('\033[3J\033[H\033[2J')
+
+	def display_string(self, string, line):
+		# VT100 sequence for goto-XY
+		self.write('\033[{};{}f'.format(line, 1))
+		self.write(string)

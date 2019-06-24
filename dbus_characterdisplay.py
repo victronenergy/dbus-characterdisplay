@@ -96,6 +96,7 @@ def main():
 	lcd = lcddriver.DebugLcd() if args.debug else lcddriver.Lcd(args.lcd)
 
 	# Show spash screen while initialization
+	lcd.clear()
 	lcd.splash()
 
 	# Attach to settings we care about
@@ -124,7 +125,17 @@ def main():
 	try:
 		kbd = InputDevice("/dev/input/by-path/platform-disp_keys-event")
 	except OSError:
-		kbd = None
+		if args.debug:
+			import termios
+			from evdev.events import InputEvent
+			class DebugKeyboard(object):
+				fd = sys.stdin
+				def read(self):
+					termios.tcflush(sys.stdin, termios.TCIFLUSH)
+					return (InputEvent(0, 0, ecodes.EV_KEY, ecodes.KEY_LEFT, 1),)
+			kbd = DebugKeyboard()
+		else:
+			kbd = None
 
 	# Context object for event handlers
 	ctx = smart_dict({'count': ROLL_TIMEOUT, 'kbd': kbd, 'screen': None})
