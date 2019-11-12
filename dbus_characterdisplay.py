@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 
-import time
-import signal
 import sys
 import logging
 from os.path import basename, dirname, abspath
 from os.path import join as pathjoin
 from argparse import ArgumentParser
-from functools import partial
-from itertools import izip
+import subprocess
 import gettext
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -19,10 +16,11 @@ from cache import smart_dict
 from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage
 from pages import AcPage, AcPhasePage, AcOutPhasePage
 from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarmsPage
+from four_button_ui import FourButtonUserInterface
+from simple_ui import SimpleUserInterface
 
 VERSION = 0.4
-ROLL_TIMEOUT = 5
-BACKLIGHT_TIMEOUT = 300
+FOUR_BUTTON_DEVICES = ['victronenergy,paygo']
 
 # Set up i18n
 gettext.install("messages",
@@ -37,35 +35,6 @@ _screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
 	SolarHistoryPage(0), SolarHistoryPage(1),
 	LanPage(), WlanPage()]
 
-class cycle(object):
-	""" Cyclical list-iterator that can be reset. """
-	def __init__(self, li):
-		self.li = li
-		self.reset()
-	def reset(self):
-		self.iterable = iter(self.li)
-	def next(self):
-		try:
-			return next(self.iterable)
-		except StopIteration:
-			self.reset()
-			return next(self.iterable)
-	def __iter__(self):
-		return self
-
-screens = cycle(_screens)
-
-def show_screen(conn, screen, lcd):
-	return screen.display(conn, lcd)
-
-def roll_screens(conn, lcd, auto):
-	# Cheap way of avoiding infinite loop
-	for screen, _ in izip(screens, _screens):
-		if auto and not screen.auto:
-			continue
-		if show_screen(conn, screen, lcd):
-			return screen
-	return None
 
 def main():
 	parser = ArgumentParser(description=sys.argv[0])
@@ -122,44 +91,27 @@ def main():
 	except OSError:
 		kbd = None
 
-	# Context object for event handlers
-	ctx = smart_dict({'count': ROLL_TIMEOUT, 'kbd': kbd, 'screen': None})
+	has_four_buttons = subprocess.check_output(["/usr/bin/board-compat"]).strip() in FOUR_BUTTON_DEVICES
+
+	if has_four_buttons:
+		ui_handler = FourButtonUserInterface(lcd, conn, kbd, _screens)
+	else:
+		ui_handler = SimpleUserInterface(lcd, conn, kbd, _screens)
+
+	ui_handler.start()
 
 	if kbd is not None:
-		def keypress(fd, condition, ctx):
-			for event in ctx.kbd.read():
-				# We could check for event.code == ecodes.KEY_LEFT but there
-				# is only one button, so lets just make them all do the same.
-				if event.type == ecodes.EV_KEY and event.value == 1:
-					# If backlight is off, turn it on
-					if lcd.on:
-						# When buttons are used, stay on selected screen longer
-						ctx.count = ROLL_TIMEOUT * 6
-					else:
-						# Except when the backlight was off, then normal timeout.
-						ctx.count = ROLL_TIMEOUT
-						lcd.on = True
-						screens.reset()
-
-					ctx.screen = roll_screens(conn, lcd, False)
-
+		def keypress(fd, condition):
+			ui_handler.key_pressed()
 			return True
 
-		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress, ctx)
+		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress)
 
-	def tick(ctx):
-		if ctx.count == 0:
-			ctx.screen = roll_screens(conn, lcd, True)
-			if lcd.on_time > BACKLIGHT_TIMEOUT:
-				lcd.on = False
-		elif ctx.screen is not None:
-			# Update the screen text
-			ctx.screen.display(conn, lcd)
-
-		ctx.count = ctx.count - 1 if ctx.count > 0 else ROLL_TIMEOUT
+	def tick():
+		ui_handler.tick()
 		return True
 
-	gobject.timeout_add(1000, tick, ctx)
+	gobject.timeout_add(1000, tick)
 
 	gobject.MainLoop().run()
 
