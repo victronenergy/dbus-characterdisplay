@@ -5,7 +5,13 @@ FILES = \
 	cache.py \
 	lcddriver.py \
 	track.py \
-	pages.py
+	pages.py \
+	four_button_pages.py \
+	four_button_ui.py \
+	simple_ui.py \
+	payg_service.py
+
+compile: ;
 
 help:
 	@echo "The following make targets are available"
