@@ -17,6 +17,7 @@ class FourButtonUserInterface(object):
         self.current_menu = None
         self.index = 0
         self.last_index = 1
+        self.last_menu_number = 0
         self.menus = [
             ('PAYG Status', PAYGStatusMenu(self.conn)),
             ('Enter Token', TokenEntryMenu(self.conn)),
@@ -68,12 +69,24 @@ class FourButtonUserInterface(object):
     def update_menu_list(self):
         menus = self.get_available_menus()
 
-        if self.index < self.last_index:
-            top_string = menus[self.index][0].ljust(15, ' ') + '>'
-            bottom_string = menus[self.index + 1][0].ljust(15, ' ') + ' '
+        number_menus = len(menus)
+        if number_menus < self.last_menu_number:
+            self.index = 0
+        self.last_menu_number = number_menus
+
+        if number_menus == 0:
+            top_string = ' Victron Energy '
+            bottom_string = ' '.ljust(16, ' ')
+        elif number_menus == 1:
+            top_string = menus[0][0].ljust(15, ' ') + '>'
+            bottom_string = ' '.ljust(16, ' ')
         else:
-            top_string = menus[self.index - 1][0].ljust(15, ' ') + ' '
-            bottom_string = menus[self.index][0].ljust(15, ' ') + '>'
+            if self.index < self.last_index:
+                top_string = menus[self.index][0].ljust(15, ' ') + '>'
+                bottom_string = menus[self.index + 1][0].ljust(15, ' ') + ' '
+            else:
+                top_string = menus[self.index - 1][0].ljust(15, ' ') + ' '
+                bottom_string = menus[self.index][0].ljust(15, ' ') + '>'
 
         self.disp.display_string(top_string, 1)
         self.disp.display_string(bottom_string, 2)
@@ -95,6 +108,8 @@ class FourButtonUserInterface(object):
         if key_pressed == ecodes.KEY_RIGHT:
             self.current_menu = self.selected_menu
             self.current_menu.enter(self.conn, self.disp)
+        else:
+            self.update_menu_list()
 
     def update_current_menu(self, key_pressed):
         if self.current_menu is not None and not self.current_menu.update(self.conn, self.disp, key_pressed):
