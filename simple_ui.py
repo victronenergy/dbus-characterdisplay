@@ -1,5 +1,6 @@
 from itertools import izip
 from evdev import ecodes
+from time import time
 
 
 class cycle(object):
@@ -22,7 +23,7 @@ class cycle(object):
 class SimpleUserInterface(object):
 
     ROLL_TIMEOUT = 5
-    BACKLIGHT_TIMEOUT = 300
+    ACTIVITY_TIMEOUT = 300
 
     def __init__(self, lcd, conn, kbd, static_screens):
         self.lcd = lcd
@@ -32,6 +33,22 @@ class SimpleUserInterface(object):
         self.screen_cycle = cycle(self._screens)
         self.screen = None
         self.count = self.ROLL_TIMEOUT
+        self._idle = False
+        self._last_activity = time()
+
+    @property
+    def idle(self):
+        return self._idle
+
+    @idle.setter
+    def idle(self, b):
+        if not b:
+            self._last_activity = time()
+        self._idle = bool(b)
+
+    @property
+    def idle_time(self):
+        return max(0, time() - self._last_activity)
 
     def start(self):
         pass
@@ -41,26 +58,37 @@ class SimpleUserInterface(object):
             # We could check for event.code == ecodes.KEY_LEFT but there
             # is only one button, so lets just make them all do the same.
             if event.type == ecodes.EV_KEY and event.value == 1:
-                # If backlight is off, turn it on
-                if self.lcd.on:
-                    # When buttons are used, stay on selected screen longer
-                    self.count = self.ROLL_TIMEOUT * 6
-                else:
-                    # Except when the backlight was off, then normal timeout.
+                backlight = self.lcd.daylight
+                if backlight and not self.lcd.on:
+                    # Backlight is off but should be on. Then also restart
+                    # from first screen
                     self.count = self.ROLL_TIMEOUT
-                    self.lcd.on = True
                     self.screen_cycle.reset()
+                else:
+                    # If button is being actively used, stay on the
+                    # selected screen longer
+                    self.count = self.ROLL_TIMEOUT if self.idle else self.ROLL_TIMEOUT * 6
+
+                self.idle = False
+                self.lcd.on = backlight
                 self.screen = self._roll_screens(False)
 
     def tick(self):
+        backlight = True
         if self.count == 0:
             self.screen = self._roll_screens(True)
-            if self.lcd.on_time > self.BACKLIGHT_TIMEOUT:
-                self.lcd.on = False
+            if self.idle_time > self.ACTIVITY_TIMEOUT:
+                self.idle = True
+                backlight = False
         elif self.screen is not None:
             # Update the screen text
             self.screen.display(self.conn, self.lcd)
         self.count = self.count - 1 if self.count > 0 else self.ROLL_TIMEOUT
+
+        # Manage the backlight. Short Circuit eval means daylight sensor
+        # is only consulted if the backlight would be on
+        if self.lcd.on:
+            self.lcd.on = backlight and self.lcd.daylight
 
     def _show_screen(self, screen):
         return screen.display(self.conn, self.lcd)

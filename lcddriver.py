@@ -1,7 +1,6 @@
 import sys
 import subprocess
 import os
-from time import time
 
 # commands
 LCD_CLEARDISPLAY = '\014'
@@ -15,7 +14,6 @@ class Lcd(object):
 	def __init__(self, lcd_dev):
 		self.lcd = os.open(lcd_dev, os.O_WRONLY)
 		self._backlight_on = True
-		self._turned_on = time()
 
 	def write(self, data):
 		os.write(self.lcd, data)
@@ -37,15 +35,21 @@ class Lcd(object):
 	def on(self, v):
 		self._backlight_on = bool(v)
 		if v:
-			self._turned_on = time()
 			self.write(LCD_RETURNHOME)
 			self.write(LCD_BACKLIGHT_ON)
 		else:
 			self.write(LCD_BACKLIGHT_OFF)
 
 	@property
-	def on_time(self):
-		return max(0, time() - self._turned_on)
+	def daylight(self):
+		""" Read the light sensor and return true if high level of ambient
+		    light is detected. """
+		try:
+			return open(
+				'/dev/gpio/display_sensor/value', 'rb').read().strip() == '0'
+		except IOError:
+			pass
+		return True
 
 	def splash(self):
 		product = subprocess.check_output(["product-name"]).strip()
@@ -69,3 +73,7 @@ class DebugLcd(Lcd):
 	@on.setter
 	def on(self, v):
 		pass
+
+	@property
+	def daylight(self):
+		return True
