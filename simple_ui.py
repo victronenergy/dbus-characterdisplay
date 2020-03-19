@@ -1,6 +1,7 @@
 from itertools import izip
 from evdev import ecodes
 from time import time
+from track import Tracker
 
 
 class cycle(object):
@@ -23,7 +24,6 @@ class cycle(object):
 class SimpleUserInterface(object):
 
     ROLL_TIMEOUT = 5
-    ACTIVITY_TIMEOUT = 300
 
     def __init__(self, lcd, conn, kbd, static_screens):
         self.lcd = lcd
@@ -35,6 +35,10 @@ class SimpleUserInterface(object):
         self.count = self.ROLL_TIMEOUT
         self._idle = False
         self._last_activity = time()
+
+        # Attach to settings we care about
+        self.settings = Tracker()
+        self.settings.track(conn, "com.victronenergy.settings", "/Settings/Gui/DisplayOff", "displayoff")
 
     @property
     def idle(self):
@@ -77,7 +81,7 @@ class SimpleUserInterface(object):
         backlight = True
         if self.count == 0:
             self.screen = self._roll_screens(True)
-            if self.idle_time > self.ACTIVITY_TIMEOUT:
+            if self.idle_time > self.settings.cache.displayoff:
                 self.idle = True
                 backlight = False
         elif self.screen is not None:
