@@ -1,6 +1,7 @@
 import sys
 import subprocess
 import os
+import gobject
 
 # commands
 LCD_CLEARDISPLAY = '\014'
@@ -14,6 +15,10 @@ class Lcd(object):
 	def __init__(self, lcd_dev):
 		self.lcd = os.open(lcd_dev, os.O_WRONLY)
 		self._backlight_on = True
+		self._flashing = False
+
+		# Create a timer for backlight flashing
+		gobject.timeout_add(500, self._flash)
 
 	def write(self, data):
 		os.write(self.lcd, data)
@@ -56,6 +61,22 @@ class Lcd(object):
 		self.on = True
 		self.display_string(' Victron Energy ', 1)
 		self.display_string(product.center(16), 2)
+
+	@property
+	def flashing(self):
+		return self._flashing
+
+	@flashing.setter
+	def flashing(self, v):
+		self._flashing = bool(v)
+		if not (self._flashing and self.on):
+			# Leave the screen on when we stop flashing, except at night
+			self.on = self.daylight
+
+	def _flash(self):
+		if self._flashing:
+			self.on = not self.on
+		return True
 
 class DebugLcd(Lcd):
 	def __init__(self):
