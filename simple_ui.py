@@ -75,7 +75,8 @@ class SimpleUserInterface(object):
 
                 self.idle = False
                 self.lcd.on = backlight
-                self.screen = self._roll_screens(False)
+                if self.screen is None or not self.screen.key_pressed(self, event):
+                    self.screen = self._roll_screens(False)
 
     def tick(self):
         backlight = True

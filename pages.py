@@ -56,6 +56,14 @@ class Page(Tracker):
 	def setup(self, conn, name):
 		pass
 
+	def key_pressed(self, ui, evt):
+		""" If the page implements keypress behaviour, put that here.
+		    Return False when no more events to handle. This can be used if a
+		    dynamic page wants to react to user input. A page should always
+		    eventually return False so that control can return to the main
+		    loop. """
+		return False
+
 	def get_text(self, conn):
 		return [["", ""], ["", ""]]
 
