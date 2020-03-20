@@ -19,7 +19,7 @@ from pages import AcSinglePhaseInPage, AcSinglePhaseOutPage
 from pages import AcMultiPhaseVoltageInPage, AcMultiPhaseVoltageOutPage
 from pages import AcMultiPhaseCurrentInPage, AcMultiPhaseCurrentOutPage
 from pages import LanPage, WlanPage
-from pages import InverterInfoPage, PVInfoPage
+from pages import InverterInfoPage, PVInfoPage, NotificationsPage
 from four_button_ui import FourButtonUserInterface
 from simple_ui import SimpleUserInterface
 
@@ -32,7 +32,7 @@ gettext.install("messages",
 
 _screens = [InverterInfoPage(), PVInfoPage(), AcSinglePhaseInPage(), AcSinglePhaseOutPage(),
 	AcMultiPhaseVoltageInPage(), AcMultiPhaseVoltageOutPage(), AcMultiPhaseCurrentInPage(),
-	AcMultiPhaseCurrentOutPage(), SolarPage(), BatteryPage(), LanPage(), WlanPage()]
+	AcMultiPhaseCurrentOutPage(), SolarPage(), BatteryPage(), LanPage(), WlanPage(), NotificationsPage()]
 
 def main():
 	parser = ArgumentParser(description=sys.argv[0])

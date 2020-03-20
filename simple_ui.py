@@ -80,14 +80,25 @@ class SimpleUserInterface(object):
 
     def tick(self):
         backlight = True
-        if self.count == 0:
-            self.screen = self._roll_screens(True)
-            if self.idle_time > self.settings.cache.displayoff:
-                self.idle = True
-                backlight = False
-        elif self.screen is not None:
-            # Update the screen text
-            self.screen.display(self.conn, self.lcd)
+
+		# If any page has urgent info to show, show only that page.
+        for p in self._screens:
+            if p.urgent:
+                self.screen_cycle.reset()
+                self.screen = p
+                p.display(self.conn, self.lcd)
+                break
+        else:
+            if self.count == 0:
+                self.screen = self._roll_screens(True)
+            elif self.screen is not None:
+                # Update the screen text
+                self.screen.display(self.conn, self.lcd)
+
+        if self.idle_time > self.settings.cache.displayoff:
+            self.idle = True
+            backlight = False
+
         self.count = self.count - 1 if self.count > 0 else self.ROLL_TIMEOUT
 
         # Manage the backlight. Short Circuit eval means daylight sensor
