@@ -14,9 +14,12 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage
-from pages import AcPage, AcPhasePage, AcOutPhasePage
-from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarmsPage
+from pages import BatteryPage, SolarPage
+from pages import AcSinglePhaseInPage, AcSinglePhaseOutPage
+from pages import AcMultiPhaseVoltageInPage, AcMultiPhaseVoltageOutPage
+from pages import AcMultiPhaseCurrentInPage, AcMultiPhaseCurrentOutPage
+from pages import LanPage, WlanPage
+from pages import InverterInfoPage, PVInfoPage
 from four_button_ui import FourButtonUserInterface
 from simple_ui import SimpleUserInterface
 
@@ -27,15 +30,9 @@ FOUR_BUTTON_DEVICES = ['victronenergy,paygo']
 gettext.install("messages",
 	pathjoin(dirname(abspath(__file__)), "lang"), unicode=True)
 
-_screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
-	VebusAlarmsPage(), AcPage(),
-	AcPhasePage(1), AcOutPhasePage(1),
-	AcPhasePage(2), AcOutPhasePage(2),
-	AcPhasePage(3), AcOutPhasePage(3),
-	BatteryPage(), SolarPage(), SolarErrorPage(),
-	SolarHistoryPage(0), SolarHistoryPage(1),
-	LanPage(), WlanPage()]
-
+_screens = [InverterInfoPage(), PVInfoPage(), AcSinglePhaseInPage(), AcSinglePhaseOutPage(),
+	AcMultiPhaseVoltageInPage(), AcMultiPhaseVoltageOutPage(), AcMultiPhaseCurrentInPage(),
+	AcMultiPhaseCurrentOutPage(), SolarPage(), BatteryPage(), LanPage(), WlanPage()]
 
 def main():
 	parser = ArgumentParser(description=sys.argv[0])

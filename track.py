@@ -32,7 +32,7 @@ class Tracker(object):
 
 		self.cache[key] = v = self.unwrap_dbus_value(value)
 		if callback is not None:
-			callback(v)
+			callback(key, v)
 
 	def query(self, conn, service, path):
 		try:

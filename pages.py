@@ -1,8 +1,5 @@
 import logging
-from functools import partial
-from itertools import count, izip
-from collections import defaultdict
-from cache import smart_dict
+from itertools import izip
 from track import Tracker
 import dbus
 
@@ -34,17 +31,39 @@ def format_line(line):
 
 		if (pad < 0):
 			return ("{:.{}}").format(line[0], DISPLAY_COLS)
-		elif (len(line[1]) > pad):
-			return ("{}{:.{}}").format(line[0], line[1], pad)
-		else:
-			return ("{}{:>{}}").format(line[0], line[1], pad)
+		elif len(line) > 1:
+			if (len(line[1]) > pad):
+				return ("{}{:.{}}").format(line[0], line[1], pad)
+			else:
+				return ("{}{:>{}}").format(line[0], line[1], pad)
 
 	return " "*DISPLAY_COLS
 
 
+class TrackInstance(type):
+	""" Enforces singleton behaviour on a class.  Adds a `instance` attribute
+	    on the class object so the single item can be found quickly. """
+	def __init__(klass, name, bases, attrs):
+		if '_instance' not in klass.__dict__:
+			klass._instance = None
+		else:
+			if klass._instance is not None:
+				raise RuntimeError("Multiple instances of {}".format(klass.__name__))
+			klass._instance = klass
+
+	@property
+	def instance(klass):
+		return klass._instance
+
 class Page(Tracker):
+	__metaclass__ = TrackInstance
+
 	# Subclasses can override
 	_auto = True
+
+	def __new__(klass, *args, **kwargs):
+		klass._instance = super(Page, klass).__new__(klass, *args, **kwargs)
+		return klass._instance
 
 	@property
 	def auto(self):
@@ -65,7 +84,7 @@ class Page(Tracker):
 		return False
 
 	def get_text(self, conn):
-		return [["", ""], ["", ""]]
+		return ""
 
 	def display(self, conn, lcd):
 		try:
@@ -78,219 +97,180 @@ class Page(Tracker):
 			return False
 
 		# Display text
-		for row in xrange(0, DISPLAY_ROWS):
-			line = format_line(text[row])
-			lcd.display_string(line, row + 1)
+		if isinstance(text, (list, tuple)):
+			for row, _line in izip(xrange(DISPLAY_ROWS), text):
+				line = format_line(_line)
+				lcd.display_string(line, row + 1)
+		else:
+			lcd.home()
+			lcd.write(text)
 
 		return True
 
-class StatusPage(Page):
+	@classmethod
+	def format_power(klass, p, w):
+		_p = abs(p)
+		def _inner():
+			if _p >= 10000: # 10kw and above
+				return "{}k".format(int(round(p/1000.0)))
+			if _p >= 1000:
+				return "{}k".format(round(p/1000.0, 1))
+			return str(int(p))
+		return "{:>{width}s}".format(_inner(), width=w)
+
+	@classmethod
+	def format_value(klass, v, p, u):
+		""" Print v (a double) to precision p, and tack on the unit u. """
+		return "{:.{precision}f}{}".format(v, u, precision=p)
+
+class InverterInfoPage(Page):
 	def __init__(self):
-		super(StatusPage, self).__init__()
+		super(InverterInfoPage, self).__init__()
 		self.states = {
 			0x00: _("Off"),
-			0x01: _("Low Power"),
-			0x02: _("Fault"),
-			0x03: _("Bulk"),
-			0x04: _("Absorption"),
-			0x05: _("Float"),
-			0x06: _("Storage"),
-			0x07: _("Equalize"),
-			0x08: _("Passthru"),
-			0x09: _("Invert"),
-			0x0A: _("Assist"),
+			0x01: _("LwP"),
+			0x02: _("Flt"),
+			0x03: _("Blk"),
+			0x04: _("Abs"),
+			0x05: _("Flt"),
+			0x06: _("Sto"),
+			0x07: _("Eql"),
+			0x08: _("Pas"),
+			0x09: _("Inv"),
+			0x0A: _("Ast"),
 			0x0B: _("Psu"),
-			0x100: _("Discharge"),
-			0x101: _("Sustain"),
-			0x102: _("Recharge"),
-			0x103: _("Sched Charge")
+			0x100: _("Dis"),
+			0x101: _("Sus"),
+			0x102: _("Rec"),
+			0x103: _("Sch")
 		}
+
+		self.cache.batterypower = None
+		self.cache.soc = None
 		self.cache.state = None
-		self.cache.systemname = None
+		self.cache.hub = None
+		self.solar_chargers = {}
 
 	def setup(self, conn, name):
 		if name == "com.victronenergy.system":
-			self.track(conn, name, "/SystemState/State", "state")
-			self.track(conn, name, "/SystemType", "systemtype")
-		if name == "com.victronenergy.settings":
-			self.track(conn, name, "/Settings/SystemSetup/SystemName", "systemname")
+			self.track(conn, "com.victronenergy.system", "/Ac/ConsumptionOnInput/L1/Power", "ac_in_l1")
+			self.track(conn, "com.victronenergy.system", "/Ac/ConsumptionOnInput/L2/Power", "ac_in_l2")
+			self.track(conn, "com.victronenergy.system", "/Ac/ConsumptionOnInput/L3/Power", "ac_in_l3")
+			self.track(conn, "com.victronenergy.system", "/Ac/ConsumptionOnOutput/L1/Power", "ac_out_l1")
+			self.track(conn, "com.victronenergy.system", "/Ac/ConsumptionOnOutput/L2/Power", "ac_out_l2")
+			self.track(conn, "com.victronenergy.system", "/Ac/ConsumptionOnOutput/L3/Power", "ac_out_l3")
 
-	def format(self, text):
-		return "{:^{width}s}".format(text, width=DISPLAY_COLS)
+			# PV on AC
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnGrid/L1/Power", "pv_grid_l1")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnGrid/L2/Power", "pv_grid_l2")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnGrid/L3/Power", "pv_grid_l3")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnOutput/L1/Power", "pv_out_l1")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnOutput/L2/Power", "pv_out_l2")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnOutput/L3/Power", "pv_out_l3")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnGenset/L1/Power", "pv_genset_l1")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnGenset/L2/Power", "pv_genset_l2")
+			self.track(conn, "com.victronenergy.system", "/Ac/PvOnGenset/L3/Power", "pv_genset_l3")
 
-	def get_text(self, conn):
-		# This page always returns something, so that the display always
-		# displays something
-		if self.cache.state is None:
-			# This should only happen if systemcalc is dead
-			return [["Wait..."], ["", ""]]
+			# PV on DC
+			self.track(conn, "com.victronenergy.system", "/Dc/Pv/Power", "pv_dc")
 
-		return [[self.format(self.cache.systemname or self.cache.systemtype or "Status"), ""],
-			[self.format(self.states.get(self.cache.state, None) or ""), ""]]
+			# Battery info
+			self.track(conn, "com.victronenergy.system", "/Dc/Battery/Power", "batterypower")
+			self.track(conn, "com.victronenergy.system", "/Dc/Battery/Soc", "soc")
 
-class ReasonPage(StatusPage):
-	def __init__(self):
-		super(ReasonPage, self).__init__()
-		self.cache.systemname = None
-		self.cache.bl = None
+			# Overall state
+			self.track(conn, "com.victronenergy.system", "/SystemState/State", "state")
+			self.track(conn, "com.victronenergy.system", "/Hub", "hub")
+		elif name.startswith("com.victronenergy.solarcharger."):
+			# Track solar charger state, cause we might need it
+			self.track(conn, name, "/State", name+'/State', self.update_solarchargers)
 
-	def setup(self, conn, name):
-		if name == "com.victronenergy.system":
-			self.track(conn, name, "/SystemState/BatteryLife", "bl")
-			self.track(conn, name, "/SystemState/ChargeDisabled", "cd")
-			self.track(conn, name, "/SystemState/DischargeDisabled", "dd")
-			self.track(conn, name, "/SystemState/LowSoc", "ls")
-			self.track(conn, name, "/SystemState/SlowCharge", "sc")
-			self.track(conn, name, "/SystemState/UserChargeLimited", "ucl")
-			self.track(conn, name, "/SystemState/UserDischargeLimited", "udl")
-			self.track(conn, name, "/SystemType", "systemtype")
-		if name == "com.victronenergy.settings":
-			self.track(conn, name, "/Settings/SystemSetup/SystemName", "systemname")
+	def cleanup(self, name):
+		super(InverterInfoPage, self).cleanup(name)
+		k = name+'/State'
+		if k in self.solar_chargers:
+			del self.solar_chargers[k]
 
-	def get_text(self, conn):
-		if self.cache.bl is None:
-			# This should only happen if systemcalc is dead
-			return None
+	def update_solarchargers(self, key, value):
+		self.solar_chargers[key] = value
 
-		reasons = ("{:X}".format(reason) for reason, v in izip(count(1), (
-			self.cache.ls, self.cache.bl,
-			self.cache.cd, self.cache.dd, self.cache.sc, self.cache.ucl,
-			self.cache.udl)) if v)
-		reasons = ",".join(reasons)
-		text = "#" + reasons if reasons else ""
+	@property
+	def input_power(self):
+		v = (self.cache.get(a) for a in ("ac_in_l1", "ac_in_l2", "ac_in_l3"))
+		return sum(x for x in v if x is not None)
 
-		# Skip this page if no reasons to display
-		if text:
-			return [[self.format(self.cache.systemname or self.cache.systemtype or "Status"), ""],
-				[self.format(text), ""]]
-		return None
+	@property
+	def output_power(self):
+		v = (self.cache.get(a) for a in ("ac_out_l1", "ac_out_l2", "ac_out_l3"))
+		return sum(x for x in v if x is not None)
 
+	@property
+	def pv_power(self):
+		v = (self.cache.get(a) for a in ("pv_grid_l1", "pv_grid_l2", "pv_grid_l3",
+			"pv_out_l1", "pv_out_l2", "pv_out_l3",
+			"pv_genset_l1", "pv_genset_l2", "pv_genset_l3", "pv_dc"))
+		# Elaborate way of summing the items, but returning None if they are all None
+		return reduce(lambda *args: None if all(a is None for a in args) else sum(a for a in args if a is not None), v)
 
-class VebusAlarmsPage(Page):
-	def __init__(self):
-		super(VebusAlarmsPage, self).__init__()
-		self.alarms = {
-			"HighTemperature": _("High temp"),
-			"LowBattery": _("Low battery"),
-			"Overload": _("Overload"),
-			"Ripple": _("High ripple"),
-			"TemperatureSensor": _("Temp Sense"),
-			"VoltageSensor": _("Volt sense"),
-		}
+	@property
+	def charge_state(self):
+		if self.cache.hub == 4:
+			# This is an ESS system, we can show the overall state
+			return self.cache.state
 
-	def setup(self, conn, name):
-		if name.startswith("com.victronenergy.vebus."):
-			for phase in xrange(1, 4):
-				for alarm in ("HighTemperature", "LowBattery",
-						"Overload", "Ripple"):
-					path = "/Alarms/L{}/{}".format(phase, alarm)
-					self.track(conn, name, path, path)
-			for alarm in ("TemperatureSensor", "VoltageSensor"):
-				path = "/Alarms/{}".format(alarm)
-				self.track(conn, name, path, path)
-				self.track(conn, name, path, path)
+		# Multiple states might need consideration. Collect the state of the Multi and all
+		# solar chargers.
+		states = set([self.cache.state] + self.solar_chargers.values())
+
+		# The states we care about are 3/Bulk, 4/Absorb, 7/Equalise, 5/Float
+		# and 6/Storage. 7 is the only one out of order. Check for 7, then
+		# simply select the max.
+		if 7 in states: return 7
+		return max(states) if states else None
 
 	def get_text(self, conn):
-		alarms = []
-		for alarm in ("HighTemperature", "LowBattery",
-					"Overload", "Ripple"):
-			paths = ["/Alarms/L{}/{}".format(phase, alarm) for phase in xrange(1, 4)]
-			if any((self.cache.get(p, None) for p in paths)):
-				alarms.append(alarm)
+		# First line:
+		# 4 characters heading, 5 characters AC-in, space, 5 characters AC-out, W
+		# Second line:
+		# Bat symbol, 3 characters SoC, space, 5 characters battery power, W, Charge state
+		return self.get_power_text() + "\n" + self.get_battery_text()
 
-		for alarm in ("TemperatureSensor", "VoltageSensor"):
-			if self.cache.get("/Alarms/{}".format(alarm), None):
-				alarms.append(alarm)
+	def get_power_text(self):
+		return "\001IO " + self.format_power(self.input_power, 5) + " " + self.format_power(self.output_power, 5) + "W"
 
-		if alarms:
-			return [["Alarm:", ""], [self.alarms.get(alarms[0], ""), ""]]
+	def get_pv_text(self):
+		p = self.pv_power
+		return "\000PV " + (self.format_power(p, 5) if p is not None else " --- ") + " " + self.format_power(self.output_power, 5) + "W"
 
-		return None
+	def get_battery_text(self):
+		if None in (self.cache.batterypower, self.cache.state):
+			return " "*DISPLAY_COLS
+		return "\004" + \
+			("{:>3.0f}%".format(self.cache.soc) if self.cache.soc is not None else '--  ') + \
+			" " + self.format_power(self.cache.batterypower, 4) + "W " + \
+			"{:>4}".format(self.states.get(self.charge_state, "---"))
 
-
-class VebusErrorPage(Page):
-	def __init__(self):
-		super(VebusErrorPage, self).__init__()
-		self.errors = {
-			1: _("Phase failure"),
-			2: _("Contact support"),
-			3: _("Config error"),
-			4: _("Missing devices"),
-			5: _("Overvolt AC-Out"),
-			6: _("Assistant error"),
-			7: _("VE.Bus BMS error"),
-			10: _("Time sync error"),
-			11: _("Relay error"),
-			14: _("Transmit error"),
-			16: _("Dongle missing"),
-			17: _("Master missing"),
-			18: _("Overvolt AC-Out"),
-			22: _("Obsolete device"),
-			24: _("S/O protect"),
-			25: _("F/W incompatible"),
-			26: _("Internal error")
-		}
-		self.cache.vebus_error = None
-
-	def setup(self, conn, name):
-		if name.startswith("com.victronenergy.vebus."):
-			self.track(conn, name, "/VebusError", "vebus_error")
-
+class PVInfoPage(Page):
+	""" Piggy-backs on InverterInfoPage, shows slightly alternate text. """
 	def get_text(self, conn):
-		if self.cache.vebus_error is not None and self.cache.vebus_error > 0:
-			return [[_("VE.Bus error") + ":", '#'+str(self.cache.vebus_error or 0)],
-				[self.errors.get(self.cache.vebus_error, ""), ""]]
-
-		# Skip this page if no error
-		return None
-
-
-class SolarErrorPage(Page):
-	def __init__(self):
-		super(SolarErrorPage, self).__init__()
-		self.errors = {
-			2: _("V-Bat too high"),
-			3: _("T-sense fail"),
-			4: _("T-sense fail"),
-			5: _("T-sense fail"),
-			6: _("V-sense fail"),
-			7: _("V-sense fail"),
-			8: _("V-sense fail"),
-			17: _("Overheat"),
-			18: _("Over-current"),
-			20: _("Max Bulk"),
-			21: _("C-sense fail"),
-			26: _("Terminal o/heat"),
-			28: _("Power stage"),
-			33: _("PV overvoltage"),
-			34: _("PV over-current"),
-			38: _("PV-in shutdown"),
-			39: _("PV-in shutdown"),
-			65: _("Comm. warning"),
-			66: _("Incompatible dev"),
-			67: _("BMS lost"),
-			114: _("CPU hot"),
-			116: _("Calibration lost"),
-			119: _("Settings lost")
-		}
-		self.cache.mppt_error = None
-
-	def setup(self, conn, name):
-		if name.startswith("com.victronenergy.solarcharger."):
-			self.track(conn, name, "/ErrorCode", "mppt_error")
-
-	def get_text(self, conn):
-		if self.cache.mppt_error is not None and self.cache.mppt_error > 0:
-			return [[_("MPPT error") + ":", '#'+str(self.cache.mppt_error or 0)],
-				[self.errors.get(self.cache.mppt_error, ""), ""]]
-
-		# Skip this page if no error
-		return None
-
+		if InverterInfoPage.instance is not None:
+			return InverterInfoPage.instance.get_pv_text() + "\n" + \
+				InverterInfoPage.instance.get_battery_text()
 
 class BatteryPage(Page):
+	_auto = False
 	def __init__(self):
 		super(BatteryPage, self).__init__()
+
+		self.states = {
+			0: _("Idle"),
+			1: _("Charge"),
+			2: _("Discharge")
+		}
+
+		self.cache.battery_state = None
+		self.cache.battery_voltage = None
+		self.cache.battery_power = None
 		self.cache.battery_soc = None
 
 	def setup(self, conn, name):
@@ -298,168 +278,154 @@ class BatteryPage(Page):
 			self.track(conn, name, "/Dc/Battery/Voltage", "battery_voltage")
 			self.track(conn, name, "/Dc/Battery/Soc", "battery_soc")
 			self.track(conn, name, "/Dc/Battery/Power", "battery_power")
+			self.track(conn, name, "/Dc/Battery/State", "battery_state")
 
 
 	def get_text(self, conn):
-		if self.cache.battery_soc is None:
+		return "\004{:>4s} {:>3s}% {:>4s}V\n".format(
+			_("Bat"), str(int(self.cache.battery_soc)) if self.cache.battery_soc is not None else "---",
+			str(round(self.cache.battery_voltage, 1)) if self.cache.battery_voltage is not None else "---") + \
+			"{}W {:>10s}".format(self.format_power(self.cache.battery_power, 4) if self.cache.battery_power is not  None else "---", self.states.get(self.cache.battery_state, "---"))
+		if self.cache.battery_state is None:
 			return None
-
-		text = [[_("Battery") + ":", ""], ["", ""]]
-		text[0][1] = "{:.1f} %".format(self.cache.battery_soc)
-		if (self.cache.battery_power is not None):
-			text[1][0] = "{:+.0f} W".format(self.cache.battery_power)
-
-		if (self.cache.battery_voltage is not None):
-			text[1][1] = "{:.1f} V".format(self.cache.battery_voltage)
-		return text
 
 class SolarPage(Page):
+	_auto = False
 	def __init__(self):
 		super(SolarPage, self).__init__()
-		self.mppt_states = {
-			0x00: _('Off'),
-			0x03: _('Bulk'),
-			0x04: _('Absorb'),
-			0x05: _('Float'),
-			0x06: _('Storage'),
-			0x07: _('Eqlz'),
-			0xfc: _('ESS')
-		}
-		self.cache.mppt_connected = None
-
-	def setup(self, conn, name):
-		if name.startswith("com.victronenergy.solarcharger."):
-			self.track(conn, name, "/Connected", "mppt_connected")
-			self.track(conn, name, "/State", "mppt_state")
-			self.track(conn, name, "/Yield/Power", "pv_power")
-			self.track(conn, name, "/Pv/V", "pv_voltage")
-
-
-	def get_text(self, conn):
-		# Skip page if no mppt connected
-		if not self.cache.mppt_connected:
-			return None
-
-		text = [[_("Solar") + ":", "unknown"], ["", ""]]
-		if self.cache.mppt_state is not None:
-			try:
-				text[0][1] = self.mppt_states[self.cache.mppt_state]
-			except KeyError:
-				pass
-
-		if self.cache.pv_power is not None:
-			text[1][0] = "{:.0f} W".format(self.cache.pv_power)
-
-		if (self.cache.pv_voltage is not None):
-			text[1][1] = "{:.1f} V".format(self.cache.pv_voltage)
-
-		return text
-
-class SolarHistoryPage(Page):
-	_auto = False
-
-	def __init__(self, day):
-		super(SolarHistoryPage, self).__init__()
-		self.days = {
-			0: _("Today"),
-			1: _("Yesterday")
-		}
-		self.cache._yield = None
-		self.day = day
-
-	def setup(self, conn, name):
-		if name.startswith("com.victronenergy.solarcharger."):
-			self.track(conn, name, "/History/Daily/{}/Yield".format(self.day), "_yield")
-
-	def get_text(self, conn):
-		if not self.cache._yield:
-			return None
-
-		return [[_("Yield"), self.days[self.day]],
-			["{:0.2f} KWh".format(self.cache._yield), ""]]
-
-		return text
-
-class AcPage(Page):
-	sources = ["", "Grid", "Genset", "Shore"]
-
-	def __init__(self):
-		super(AcPage, self).__init__()
-		self.cache.vebus_connected = None
+		self.cache.pvp = None
+		self._solar_yield = {}
 
 	def setup(self, conn, name):
 		if name == "com.victronenergy.system":
-			self.track(conn, name, "/Ac/ActiveIn/Source", "ac_source")
+			self.track(conn, name, "/Dc/Pv/Current", "pvi")
+			self.track(conn, name, "/Dc/Pv/Power", "pvp")
+		if name.startswith("com.victronenergy.solarcharger."):
+			self.track(conn, name, "/History/Daily/0/Yield", name+"/yield", self.update_solarchargers)
 
-		if name.startswith("com.victronenergy.vebus."):
-			self.track(conn, name, "/Connected", "vebus_connected")
-			self.track(conn, name, "/Ac/ActiveIn/Connected", "ac_available")
-			self.track(conn, name, "/Ac/ActiveIn/P", "ac_power_in")
-			self.track(conn, name, "/Ac/Out/P", "ac_power_out")
+	def update_solarchargers(self, key, value):
+		self._solar_yield[key] = value
 
-	def get_ac_source(self, x):
-		try:
-			return self.sources[x]
-		except IndexError:
-			return self.sources[0]
+	def cleanup(self, name):
+		super(SolarPage, self).cleanup(name)
+		k = name+'/yield'
+		if k in self._solar_yield:
+			del self._solar_yield[k]
+
+	@property
+	def solar_yield(self):
+		return sum(v for v in self._solar_yield.itervalues() if v is not None)
 
 	def get_text(self, conn):
-		text = [["NO AC DATA", ""], ["", ""]]
-		if self.cache.vebus_connected != 1:
+		# Skip page if no mppt connected
+		if self.cache.pvp is None:
 			return None
 
-		if self.cache.ac_available is not None and self.cache.ac_source is not None:
-			if self.cache.ac_available == 1:
-				text[0][0] = "{}:".format(self.get_ac_source(self.cache.ac_source))
-				text[0][1] = "{:+.0f} W".format(self.cache.ac_power_in)
-			else:
-				text[0][0] = _("AC disconnected")
-				text[0][1] = ""
+		return "{} {:>4s}kWh {}\n".format(_("Solar"), str(int(round(self.solar_yield))), _("td")) + \
+			self.format_power(self.cache.pvp, 4) + "W     " + "{:>6s}".format(self.format_value(self.cache.pvi or 0, 1, 'A'))
 
-			if self.cache.ac_power_out is not None:
-				text[1][0] = _("Output") + ":"
-				text[1][1] = "{:+.0f} W".format(self.cache.ac_power_out)
-
-		return text
-
-class AcPhasePage(Page):
+class AcSinglePhaseInPage(Page):
 	_auto = False
+	_path = "/Ac/ActiveIn"
+	_heading = "ACin"
 
-	def __init__(self, phase):
-		super(AcPhasePage, self).__init__()
-		self.phase = phase
-		self.cache.ac_power = None
+	def __init__(self):
+		super(AcSinglePhaseInPage, self).__init__()
+		self.cache.ac_voltage = None
+		self.cache.ac_current = None
 
-	def setup(self, conn, name):
-		if name.startswith("com.victronenergy.vebus."):
-			self.track(conn, name, "/Ac/ActiveIn/L{}/P".format(self.phase), "ac_power")
-			self.track(conn, name, "/Ac/ActiveIn/L{}/V".format(self.phase), "ac_voltage_out")
-
-	def get_text(self, conn):
-		if self.cache.ac_power is None:
-			return None
-
-		return [["L{} (".format(self.phase) +_("in") + ")",
-				"{:.0f} V".format(self.cache.ac_voltage_out)], [
-				_("Power") + ":", "{:+.0f} W".format(self.cache.ac_power)]]
-
-class AcOutPhasePage(AcPhasePage):
-	def __init__(self, phase):
-		super(AcOutPhasePage, self).__init__(phase)
-		self.cache.ac_power = None
+	@property
+	def singlephase(self):
+		if AcMultiPhaseVoltageInPage.instance is not None:
+			return not AcMultiPhaseVoltageInPage.instance.multiphase
+		return True # Assume true if that page is not initialised yet
 
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
-			self.track(conn, name, "/Ac/Out/L{}/P".format(self.phase), "ac_power")
-			self.track(conn, name, "/Ac/Out/L{}/V".format(self.phase), "ac_voltage_out")
+			self.track(conn, name, self._path + "/L1/V", "ac_voltage")
+			self.track(conn, name, self._path + "/L1/I", "ac_current")
+
+	def format_value(self, v, p, u):
+		if v is None: return '---'
+		return super(AcSinglePhaseInPage, self).format_value(v, p, u)
 
 	def get_text(self, conn):
-		if self.cache.ac_power is None:
+		if not self.singlephase:
 			return None
+		iip = InverterInfoPage.instance
+		return [[self._heading, self.format_power(iip.input_power, 5) + 'W'],
+			[self.format_value(self.cache.ac_voltage, 0, 'V'),
+			self.format_value(self.cache.ac_current, 1, 'A')]]
 
-		return [["L{} (".format(self.phase) + _("out") + ")",
-				"{:.0f} V".format(self.cache.ac_voltage_out)], [
-				_("Power") + ":", "{:+.0f} W".format(self.cache.ac_power)]]
+class AcSinglePhaseOutPage(AcSinglePhaseInPage):
+	_path = "/Ac/Out"
+	_heading = "ACout"
+
+	@property
+	def singlephase(self):
+		if AcMultiPhaseVoltageOutPage.instance is not None:
+			return not AcMultiPhaseVoltageOutPage.instance.multiphase
+		return True # Assume true if that page is not initialised yet
+
+class AcMultiPhaseVoltageInPage(Page):
+	_auto = False
+	_path = "/Ac/ActiveIn"
+	_heading = "ACin "
+
+	def __init__(self):
+		super(AcMultiPhaseVoltageInPage, self).__init__()
+		self.cache.vl1 = None
+		self.cache.vl2 = None
+		self.cache.vl3 = None
+
+	@property
+	def multiphase(self):
+		return self.cache.vl2 is not None
+
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.vebus."):
+			self.track(conn, name, self._path + "/L1/V", "vl1")
+			self.track(conn, name, self._path + "/L2/V", "vl2")
+			self.track(conn, name, self._path + "/L3/V", "vl3")
+			self.track(conn, name, self._path + "/L1/I", "il1")
+			self.track(conn, name, self._path + "/L2/I", "il2")
+			self.track(conn, name, self._path + "/L3/I", "il3")
+
+	def get_text(self, conn):
+		if not self.multiphase:
+			return None
+		return self._heading + " " + "(L1,L2,L3)\n"\
+			"{:3d}V  {:3d}V  {:3d}V".format(int(self.cache.vl1 or 0),
+			int(self.cache.vl2 or 0), int(self.cache.vl3 or 0))
+
+class AcMultiPhaseVoltageOutPage(AcMultiPhaseVoltageInPage):
+	_path = "/Ac/Out"
+	_heading = "ACout"
+
+class AcMultiPhaseCurrentInPage(Page):
+	def format_value(self, v):
+		if v >= 10:
+			return "{:3d}A".format(int(v))
+		return "{:3s}A".format(str(round(v, 1)))
+
+	@property
+	def data(self):
+		return AcMultiPhaseVoltageInPage.instance
+
+	def get_text(self, conn):
+		data = self.data
+		if not data: return None
+		if not self.data.multiphase:
+			return None
+		return data._heading + " " + "(L1,L2,L3)\n" + \
+			self.format_value(data.cache.il1 or 0) + "  " + \
+			self.format_value(data.cache.il2 or 0) + "  " + \
+			self.format_value(data.cache.il3 or 0)
+
+class AcMultiPhaseCurrentOutPage(AcMultiPhaseCurrentInPage):
+	@property
+	def data(self):
+		return AcMultiPhaseVoltageOutPage.instance
 
 class LanPage(Page):
 	def __init__(self):

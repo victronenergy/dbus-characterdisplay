@@ -10,6 +10,14 @@ LCD_XY = '\033[Lx%dy%d;'
 LCD_BACKLIGHT_ON = '\033[L+'
 LCD_BACKLIGHT_OFF = '\033[L-'
 
+# define character
+ICON_SUN = '\033[LG000150E1B0E150000;'
+ICON_SINE = '\033[LG10008141405050200;'
+ICON_LEFT = '\033[LG20004081F08040000;'
+ICON_RIGHT = '\033[LG30004021F02040000;'
+ICON_BAT = '\033[LG40E1B111111111F00;'
+ICON_ALARM = '\033[LG500040E0E0E0E1F04;'
+
 class Lcd(object):
 	#initializes objects and lcd
 	def __init__(self, lcd_dev):
@@ -17,11 +25,22 @@ class Lcd(object):
 		self._backlight_on = True
 		self._flashing = False
 
+		# Add icons
+		self.write(ICON_SUN)
+		self.write(ICON_SINE)
+		self.write(ICON_LEFT)
+		self.write(ICON_RIGHT)
+		self.write(ICON_BAT)
+		self.write(ICON_ALARM)
+
 		# Create a timer for backlight flashing
 		gobject.timeout_add(500, self._flash)
 
 	def write(self, data):
 		os.write(self.lcd, data)
+
+	def home(self):
+		self.write(LCD_XY % (0, 0))
 
 	# put string function
 	def display_string(self, string, line):
