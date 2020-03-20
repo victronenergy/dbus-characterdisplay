@@ -488,8 +488,12 @@ class NotificationsPage(Page):
 				self.display(None, ui.lcd)
 				return True
 			else:
-				# TODO We popped the last one, send acknowledge
-				pass
+				# We popped the last one, send acknowledge
+				try:
+					ui.conn.call_blocking("com.victronenergy.notifications", "/", "com.victronenergy.Notifications", "acknowledge", '', [])
+				except dbus.exceptions.DBusException:
+					pass
+				ui.lcd.flashing = False
 
 		return False
 
