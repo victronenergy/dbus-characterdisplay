@@ -22,7 +22,7 @@ class Lcd(object):
 	#initializes objects and lcd
 	def __init__(self, lcd_dev):
 		self.lcd = os.open(lcd_dev, os.O_WRONLY)
-		self._backlight_on = True
+		self._backlight_on = self._backlight_state = True
 		self._flashing = False
 
 		# Add icons
@@ -57,12 +57,23 @@ class Lcd(object):
 
 	@on.setter
 	def on(self, v):
-		self._backlight_on = bool(v)
-		if v:
-			self.write(LCD_RETURNHOME)
-			self.write(LCD_BACKLIGHT_ON)
-		else:
-			self.write(LCD_BACKLIGHT_OFF)
+		self._backlight_on = v = bool(v)
+		# When flashing, the backlight is under the control of the _flash
+		# timer event. Stay out of it in that case.
+		if not self.flashing:
+			if v:
+				self.backlight_on()
+			else:
+				self.backlight_off()
+
+	def backlight_on(self):
+		self._backlight_state = True
+		self.write(LCD_RETURNHOME)
+		self.write(LCD_BACKLIGHT_ON)
+
+	def backlight_off(self):
+		self._backlight_state = False
+		self.write(LCD_BACKLIGHT_OFF)
 
 	@property
 	def daylight(self):
@@ -83,12 +94,15 @@ class Lcd(object):
 	def flashing(self, v):
 		self._flashing = bool(v)
 		if not (self._flashing and self.on):
-			# Leave the screen on when we stop flashing, except at night
-			self.on = self.daylight
+			# Restore backlight to former state
+			self.on = self._backlight_on
 
 	def _flash(self):
 		if self._flashing:
-			self.on = not self.on
+			if self._backlight_state:
+				self.backlight_off()
+			else:
+				self.backlight_on()
 		return True
 
 	def splash(self):
