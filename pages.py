@@ -461,6 +461,10 @@ class NotificationsPage(Page):
 				dbus_interface='com.victronenergy.Notifications',
 				signal_name='NotificationAdded', path='/', bus_name=name)
 
+			notifier = dbus.Interface(conn.get_object("com.victronenergy.notifications", "/"), "com.victronenergy.Notifications")
+			for typ, device, desc, value in notifier.GetActiveNotifications():
+				self.add_notification(typ, device, desc, value)
+
 	@property
 	def urgent(self):
 		""" If there are notices, it is urgent that we show them. """
