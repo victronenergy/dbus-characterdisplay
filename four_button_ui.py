@@ -1,7 +1,8 @@
 from evdev import ecodes
 from datetime import datetime, timedelta
 from four_button_pages import StaticMenu, TokenEntryMenu, PAYGStatusMenu
-
+from pages import BatteryPage, SolarPage, LanPage, WlanPage
+from pages import InverterInfoPage, PVInfoPage, NotificationsPage
 
 class FourButtonUserInterface(object):
 
@@ -9,7 +10,7 @@ class FourButtonUserInterface(object):
 
     def __init__(self, lcd, conn, kbd, static_pages):
         self.conn = conn
-        self.disp = lcd
+        self.disp = self.lcd = lcd
         self.kbd = kbd
         self.static_pages = static_pages
         self.last_key_pressed = datetime.now()
@@ -19,20 +20,16 @@ class FourButtonUserInterface(object):
         self.last_index = 1
         self.last_menu_number = 0
         self.menus = [
-            ('PAYG Status', PAYGStatusMenu(self.conn)),
-            ('Enter Token', TokenEntryMenu(self.conn)),
-            ('LAN Status', StaticMenu(self.static_pages[16])),
-            ('WiFi Status', StaticMenu(self.static_pages[17])),
-            ('General Status', StaticMenu(self.static_pages[0])),
-            ('Solar Status', StaticMenu(self.static_pages[12])),
-            ('Battery Status', StaticMenu(self.static_pages[11])),
-            ('Solar History', StaticMenu(self.static_pages[14])),
+            (_('PAYG Status'), PAYGStatusMenu(self.conn)),
+            (_('Enter Token'), TokenEntryMenu(self.conn)),
+            (_('LAN Status'), StaticMenu(self, LanPage.instance)),
+            (_('WiFi Status'), StaticMenu(self, WlanPage.instance)),
+            (_('General Status'), StaticMenu(self, InverterInfoPage.instance)),
+            (_('Solar Status'), StaticMenu(self, PVInfoPage.instance)),
+            (_('Battery Status'), StaticMenu(self, BatteryPage.instance)),
+            (_('Solar History'), StaticMenu(self, SolarPage.instance)),
         ]
-        self.alarm_menus = [
-            StaticMenu(self.static_pages[2]), # VE Bus error
-            StaticMenu(self.static_pages[3]),  # VE Bus alarm
-            StaticMenu(self.static_pages[13]),  # Solar error
-        ]
+        self.notificationmenu = StaticMenu(self, NotificationsPage.instance)
 
     def start(self):
         self.disp.clear()
@@ -45,9 +42,9 @@ class FourButtonUserInterface(object):
                 self.update_current_menu(event.code)
 
     def tick(self):
-        self.display_alarms()
-        self.update_current_menu(None)
-        self.update_backlight_status()
+        if not self.display_alarms():
+            self.update_current_menu(None)
+            self.update_backlight_status()
 
     def update_backlight_status(self):
         if self.last_key_pressed + timedelta(seconds=self.BACKLIGHT_TIMEOUT) < datetime.now():
@@ -56,8 +53,11 @@ class FourButtonUserInterface(object):
             self.disp.on = True
 
     def display_alarms(self):
-        for alarm in self.alarm_menus:
-            alarm.enter(self.conn, self.disp) # It will only display if the menu actually exists
+        if self.notificationmenu.urgent:
+            self.current_menu = self.notificationmenu
+            self.current_menu.enter(self.conn, self.disp)
+            return True
+        return False
 
     def get_available_menus(self):
         menus = []

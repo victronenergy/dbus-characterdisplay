@@ -4,7 +4,8 @@ from payg_service import PAYGService
 
 class StaticMenu(object):
 
-    def __init__(self, static_page):
+    def __init__(self, ui, static_page):
+        self.ui = ui
         self._static_page = static_page
 
     def is_available(self, conn):
@@ -17,8 +18,12 @@ class StaticMenu(object):
 
     def update(self, conn, display, key_pressed):
         if key_pressed:
-            return False
+            return self._static_page.key_pressed(self.ui, key_pressed)
         return True
+
+    @property
+    def urgent(self):
+        return self._static_page.urgent
 
 
 class TokenEntryMenu(object):
