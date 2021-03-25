@@ -13,7 +13,7 @@ from evdev import InputDevice, ecodes
 import gobject
 import lcddriver
 from cache import smart_dict
-from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage
+from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage, DetailedBatteryPage
 from pages import AcPage, AcPhasePage, AcOutPhasePage
 from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarmsPage
 from four_button_ui import FourButtonUserInterface
@@ -67,6 +67,13 @@ def main():
 	# Show spash screen while initialization
 	lcd.splash()
 
+	# Check the type of device
+	has_four_buttons = subprocess.check_output(["/usr/bin/board-compat"]).strip() in FOUR_BUTTON_DEVICES
+
+	# Add the screens only needed on the four button version
+	if has_four_buttons:
+		_screens.append(DetailedBatteryPage())
+
 	# Handle services that are already up
 	for name in conn.list_names():
 		if name.startswith("com.victronenergy."):
@@ -90,8 +97,6 @@ def main():
 		kbd = InputDevice("/dev/input/by-path/platform-disp_keys-event")
 	except OSError:
 		kbd = None
-
-	has_four_buttons = subprocess.check_output(["/usr/bin/board-compat"]).strip() in FOUR_BUTTON_DEVICES
 
 	if has_four_buttons:
 		ui_handler = FourButtonUserInterface(lcd, conn, kbd, _screens)
