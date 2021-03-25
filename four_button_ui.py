@@ -25,7 +25,7 @@ class FourButtonUserInterface(object):
             ('WiFi Status', StaticMenu(self.static_pages[17])),
             ('General Status', StaticMenu(self.static_pages[0])),
             ('Solar Status', StaticMenu(self.static_pages[12])),
-            ('Battery Status', StaticMenu(self.static_pages[11])),
+            ('Battery Status', StaticMenu(self.static_pages[18])),
             ('Solar History', StaticMenu(self.static_pages[14])),
         ]
         self.alarm_menus = [

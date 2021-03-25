@@ -305,6 +305,29 @@ class BatteryPage(Page):
 			text[1][1] = "{:.1f} V".format(self.cache.battery_voltage)
 		return text
 
+class MPPTBatteryPage(Page):
+	def __init__(self):
+		super(MPPTBatteryPage, self).__init__()
+
+	def setup(self, conn, name):
+		if name.startswith("com.victronenergy.solarcharger."):
+			self.track(conn, name, "/Connected", "mppt_connected")
+			self.track(conn, name, "/Dc/0/Voltage", "battery_voltage")
+			self.track(conn, name, "/Dc/0/Current", "battery_current")
+
+	def get_text(self, conn):
+		# Skip page if no mppt connected
+		if not self.cache.mppt_connected:
+			return None
+
+		text = [[_("Battery") + ":", ""], ["", ""]]
+		if self.cache.battery_voltage is not None:
+			text[1][0] = "{:.1f} V".format(self.cache.battery_voltage)
+		if (self.cache.battery_current is not None):
+			text[1][1] = "{:.1f} A".format(self.cache.battery_current)
+		return text
+
+
 class SolarPage(Page):
 	def __init__(self):
 		super(SolarPage, self).__init__()
