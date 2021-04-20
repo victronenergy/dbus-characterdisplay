@@ -59,11 +59,17 @@ class PAYGService(object):
 
     def update_device_status_if_code_valid(self, token):
         self._dbus_write(self.SERVICE_NAME, "/Tokens/Last", token)
-        token_valid = self.tracker.query(self.conn, self.SERVICE_NAME, "/Tokens/LastTokenValid")
-        if token_valid:
-            return True
-        else:
-            return False
+        return self.tracker.query(self.conn, self.SERVICE_NAME, "/Tokens/LastTokenValid")
+
+    def update_lvd_value(self, new_lvd_volts):
+        self._dbus_write(self.SERVICE_NAME, "/LVD/Threshold", new_lvd_volts)
+        return True
+
+    def get_lvd_value(self):
+        lvd_value = self.tracker.query(self.conn, self.SERVICE_NAME, "/LVD/Threshold")
+        if lvd_value is not None:
+            return lvd_value
+        return None
 
     def _get_expiration_date(self):
         expiration_date = self.tracker.query(self.conn, self.SERVICE_NAME, "/Status/ActiveUntilDate")
