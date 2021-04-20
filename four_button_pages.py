@@ -114,6 +114,7 @@ class NumberEntryMenu(object):
         self.prompt_text = prompt_text
         self.callback_function = callback_function
         self.starting_value_callback = starting_value_callback
+        self.ready = False
 
     def is_available(self, conn):
         return False
@@ -132,8 +133,11 @@ class NumberEntryMenu(object):
         display.clear()
         display.display_string(self.prompt_text, 1)
         display.display_string(self.to_display.ljust(self.number_length, '_'), 2)
+        self.ready = True
 
     def update(self, conn, display, key_pressed):
+        if not self.ready:
+            return True
         if self.entry_complete:
             if key_pressed:
                 return False
@@ -218,5 +222,7 @@ class ServiceMenu(object):
 
     def get_lvd_string(self):
         lvd_value = self.payg_service.get_lvd_value()
+        if not lvd_value:
+            lvd_value = 11.5
         lvd_value_string = str(int(float(lvd_value)*1000))
         return lvd_value_string
