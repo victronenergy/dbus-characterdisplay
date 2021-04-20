@@ -308,6 +308,7 @@ class BatteryPage(Page):
 class MPPTBatteryPage(Page):
 	def __init__(self):
 		super(MPPTBatteryPage, self).__init__()
+		self.cache.mppt_connected = None
 
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.solarcharger."):
