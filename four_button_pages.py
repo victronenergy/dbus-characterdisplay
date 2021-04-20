@@ -55,10 +55,10 @@ class TokenEntryMenu(object):
             if key_pressed == ecodes.KEY_LEFT:
                 return False
         else:
-            if key_pressed or self.was_locked:
-                if self.was_locked:
-                    display.clear()
-                    self.was_locked = False
+            if self.was_locked:
+                display.clear()
+                self.was_locked = False
+                self.number_entry_menu.enter(conn, display)
             return self.number_entry_menu.update(conn, display, key_pressed)
         return True
 
