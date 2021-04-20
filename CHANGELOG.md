@@ -8,7 +8,7 @@
 
 - Added an input to set the PAYGO LVD Threshold from the service menu
 
-- Added new battery menu displaying both Battery Current and Voltage
+- Added new Battery Status menu displaying both Battery Current and Voltage (the existing one was showing power instead)
 
 ## v1.1 - 2020-11-16
 
