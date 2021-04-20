@@ -65,6 +65,16 @@ class PAYGService(object):
         else:
             return False
 
+    def update_lvd_value(self, new_lvd_volts):
+        self._dbus_write(self.SERVICE_NAME, "/LVD/Threshold", new_lvd_volts)
+        return True
+
+    def get_lvd_value(self):
+        lvd_value = self.tracker.query(self.conn, self.SERVICE_NAME, "/LVD/Threshold")
+        if lvd_value is not None:
+            return lvd_value
+        return None
+
     def _get_expiration_date(self):
         expiration_date = self.tracker.query(self.conn, self.SERVICE_NAME, "/Status/ActiveUntilDate")
         if expiration_date is not None:

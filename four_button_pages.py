@@ -26,16 +26,13 @@ class TokenEntryMenu(object):
     def __init__(self, conn):
         self.conn = conn
         self.payg_service = PAYGService(self.conn)
+        self.number_entry_menu = NumberEntryMenu(conn, 9, 'Enter Token', self.complete_token_entry)
 
     def is_available(self, conn):
         return self.payg_service.service_available()
 
     def enter(self, conn, display):
         self.was_locked = False
-        self.token_typed = ''
-        self.current_digit = 5
-        self.token_entry_complete = False
-        self.to_display = self.token_typed + str(self.current_digit)
 
         display.clear()
 
@@ -45,14 +42,10 @@ class TokenEntryMenu(object):
             date_string = 'for {minutes} min.'.format(minutes=minutes)
             display.display_string(date_string.center(16), 2)
         else:
-            display.display_string('Enter Token', 1)
-            display.display_string(self.to_display.ljust(9, '_'), 2)
+            self.number_entry_menu.enter(conn, display)
+            
 
     def update(self, conn, display, key_pressed):
-        if self.token_entry_complete:
-            if key_pressed:
-                return False
-            return True
         if not self.payg_service.token_entry_allowed():
             display.display_string('Token entry lock'.center(16), 1)
             minutes = self.payg_service.get_minutes_of_token_block()
@@ -62,37 +55,14 @@ class TokenEntryMenu(object):
             if key_pressed == ecodes.KEY_LEFT:
                 return False
         else:
-            if key_pressed == ecodes.KEY_RIGHT:
-                self.token_typed = self.token_typed + str(self.current_digit)
-                if len(self.token_typed) == 9:
-                    self.complete_token_entry(display, self.token_typed)
-                    return True
-                self.current_digit = 5
-            if key_pressed == ecodes.KEY_LEFT:
-                if len(self.token_typed) == 0:
-                    return False
-                else:
-                    self.current_digit = int(self.token_typed[-1:]) if self.token_typed[-1:] else 5
-                    self.token_typed = self.token_typed[:-1]
-            if key_pressed == ecodes.KEY_UP:
-                self.current_digit += 1
-                if self.current_digit > 9:
-                    self.current_digit = 0
-            if key_pressed == ecodes.KEY_DOWN:
-                self.current_digit -= 1
-                if self.current_digit < 0:
-                    self.current_digit = 9
             if key_pressed or self.was_locked:
                 if self.was_locked:
                     display.clear()
                     self.was_locked = False
-                self.to_display = self.token_typed + str(self.current_digit)
-                display.display_string('Enter Token', 1)
-                display.display_string(self.to_display.ljust(9, '_'), 2)
+            return self.number_entry_menu.update(conn, display, key_pressed)
         return True
 
-    def complete_token_entry(self, display, token_typed):
-        self.token_entry_complete = True
+    def complete_token_entry(self, conn, display, token_typed):
         is_token_valid = self.payg_service.update_device_status_if_code_valid(int(token_typed))
         display.clear()
         if is_token_valid:
@@ -134,3 +104,119 @@ class PAYGStatusMenu(object):
         if key_pressed:
             return False
         return True
+
+
+class NumberEntryMenu(object):
+
+    def __init__(self, conn, number_length, prompt_text, callback_function, starting_value_callback=None):
+        self.conn = conn
+        self.number_length = number_length
+        self.prompt_text = prompt_text
+        self.callback_function = callback_function
+        self.starting_value_callback = starting_value_callback
+
+    def is_available(self, conn):
+        return False
+
+    def enter(self, conn, display):
+        if not self.starting_value_callback:
+            self.number_typed = ''
+            self.current_digit = 5
+        else:
+            starting_value = self.starting_value_callback()
+            self.number_typed = starting_value[:-1]
+            self.current_digit = int(starting_value[-1])
+        self.entry_complete = False
+        self.to_display = self.number_typed + str(self.current_digit)
+
+        display.clear()
+        display.display_string(self.prompt_text, 1)
+        display.display_string(self.to_display.ljust(self.number_length, '_'), 2)
+
+    def update(self, conn, display, key_pressed):
+        if self.entry_complete:
+            if key_pressed:
+                return False
+            return True
+        if key_pressed == ecodes.KEY_RIGHT:
+            self.number_typed = self.number_typed + str(self.current_digit)
+            if len(self.number_typed) == self.number_length:
+                self.entry_complete = True
+                self.callback_function(conn, display, self.number_typed)
+                return True
+            self.current_digit = 5
+        if key_pressed == ecodes.KEY_LEFT:
+            if len(self.number_typed) == 0:
+                return False
+            else:
+                self.current_digit = int(self.number_typed[-1:]) if self.number_typed[-1:] else 5
+                self.number_typed = self.number_typed[:-1]
+        if key_pressed == ecodes.KEY_UP:
+            self.current_digit += 1
+            if self.current_digit > 9:
+                self.current_digit = 0
+        if key_pressed == ecodes.KEY_DOWN:
+            self.current_digit -= 1
+            if self.current_digit < 0:
+                self.current_digit = 9
+        if key_pressed:
+            self.to_display = self.number_typed + str(self.current_digit)
+            display.display_string(self.prompt_text, 1)
+            display.display_string(self.to_display.ljust(self.number_length, '_'), 2)
+        return True
+
+
+class ServiceMenu(object):
+
+    def __init__(self, conn):
+        self.conn = conn
+        self.payg_service = PAYGService(self.conn)
+        self.password_entry_menu = NumberEntryMenu(conn, 6, 'Service Password', self.validate_password)
+        self.lvd_entry_menu = NumberEntryMenu(conn, 5, 'LVD Thres. (mV):', self.save_lvd, starting_value_callback=self.get_lvd_string)
+
+    def is_available(self, conn):
+        return self.payg_service.service_available()
+
+    def enter(self, conn, display):
+        self.password_valid = None
+        self.lvd_set = None
+        self.password_entry_menu.enter(conn, display)
+
+    def update(self, conn, display, key_pressed):
+        if self.password_valid is None:
+            return self.password_entry_menu.update(conn, display, key_pressed)
+        elif self.password_valid == True:
+            if not self.lvd_set:
+                return self.lvd_entry_menu.update(conn, display, key_pressed)
+            else:
+                if key_pressed:
+                    return False
+        else:
+            if key_pressed:
+                return False
+        return True
+
+    def validate_password(self, conn, display, password):
+        if password == '567415':
+            self.password_valid = True
+            self.lvd_entry_menu.enter(conn, display)
+        else:
+            display.clear()
+            display.display_string('Wrong password!', 1)
+            display.display_string('Try again', 2)
+            self.password_valid = False
+        return True
+
+    def save_lvd(self, conn, display, new_lvd):
+        new_lvd_volts = int(new_lvd)/1000.0
+        self.payg_service.update_lvd_value(new_lvd_volts)
+        display.clear()
+        display.display_string('New LVD: ', 1)
+        display.display_string('{new_lvd_volts} V'.format(new_lvd_volts=new_lvd_volts), 2)
+        self.lvd_set = True
+        return True
+
+    def get_lvd_string(self):
+        lvd_value = self.payg_service.get_lvd_value()
+        lvd_value_string = str(int(float(lvd_value)*1000))
+        return lvd_value_string

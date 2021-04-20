@@ -1,6 +1,6 @@
 from evdev import ecodes
 from datetime import datetime, timedelta
-from four_button_pages import StaticMenu, TokenEntryMenu, PAYGStatusMenu
+from four_button_pages import StaticMenu, TokenEntryMenu, PAYGStatusMenu, ServiceMenu
 
 
 class FourButtonUserInterface(object):
@@ -27,6 +27,7 @@ class FourButtonUserInterface(object):
             ('Solar Status', StaticMenu(self.static_pages[12])),
             ('Battery Status', StaticMenu(self.static_pages[18])),
             ('Solar History', StaticMenu(self.static_pages[14])),
+            ('Service Menu', ServiceMenu(self.conn)),
         ]
         self.alarm_menus = [
             StaticMenu(self.static_pages[2]), # VE Bus error

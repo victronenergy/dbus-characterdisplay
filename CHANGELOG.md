@@ -1,10 +1,14 @@
 # Changelog
 
-## v1.2 - 2021-04-19
+## v1.2 - 2021-04-20
 
-- Added new battery menu displaying Battery Current and Voltage for systems with just an MPPT
+- Extracted the number entry logic into a separate reusable menu for 4 buttons devices
 
-- Added new 4 button menu allowing the entry of the LVD setting
+- Added a new password protected PAYGO Service Menu
+
+- Added an input to set the PAYGO LVD Threshold from the service menu
+
+- Added new battery menu displaying both Battery Current and Voltage
 
 ## v1.1 - 2020-11-16
 
