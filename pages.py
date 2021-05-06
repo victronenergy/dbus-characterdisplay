@@ -305,9 +305,9 @@ class BatteryPage(Page):
 			text[1][1] = "{:.1f} V".format(self.cache.battery_voltage)
 		return text
 
-class MPPTBatteryPage(Page):
+class DetailedBatteryPage(Page):
 	def __init__(self):
-		super(MPPTBatteryPage, self).__init__()
+		super(DetailedBatteryPage, self).__init__()
 		self.cache.mppt_connected = None
 
 	def setup(self, conn, name):
