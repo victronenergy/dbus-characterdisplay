@@ -63,9 +63,9 @@ class TokenEntryMenu(object):
         return True
 
     def complete_token_entry(self, conn, display, token_typed):
-        is_token_valid = self.payg_service.update_device_status_if_code_valid(int(token_typed))
+        token_status = self.payg_service.update_device_status_if_code_valid(int(token_typed))
         display.clear()
-        if is_token_valid:
+        if token_status == 1:
             display.display_string('Token Valid'.center(16), 1)
             if not self.payg_service.is_payg_enabled():
                 display.display_string('Active Forever'.center(16), 2)
@@ -73,6 +73,9 @@ class TokenEntryMenu(object):
                 days_left, hours_left = self.payg_service.get_number_of_days_and_hours_left()
                 date_string = '{days} days, {hours} h'.format(days=days_left, hours=hours_left)
                 display.display_string(date_string.center(16), 2)
+        elif token_status == -2:
+            display.display_string('Token'.center(16), 1)
+            display.display_string('Already Used'.center(16), 2)
         else:
             display.display_string('Token Invalid'.center(16), 1)
             display.display_string(''.center(16), 2)
