@@ -11,17 +11,11 @@ class PAYGService(object):
 
     def service_available(self):
         payg_enabled = self.tracker.query(self.conn, self.SERVICE_NAME, "/Status/PaygoEnabled")
-        if payg_enabled is None:
-            return False
-        else:
-            return True
+        return payg_enabled is not None
 
     def is_active(self):
         is_active = self.tracker.query(self.conn, self.SERVICE_NAME, "/Status/CurrentlyActive")
-        if is_active:
-            return True
-        else:
-            return False
+        return bool(is_active)
 
     def is_payg_enabled(self):
         payg_enabled = self.tracker.query(self.conn, self.SERVICE_NAME, "/Status/PaygoEnabled")
@@ -33,10 +27,7 @@ class PAYGService(object):
     def token_entry_allowed(self):
         if not self._get_blocked_until_date():
             return True
-        if datetime.now() >= self._get_blocked_until_date():
-            return True
-        else:
-            return False
+        return datetime.now() >= self._get_blocked_until_date()
 
     def get_minutes_of_token_block(self):
         if not self._get_blocked_until_date():
