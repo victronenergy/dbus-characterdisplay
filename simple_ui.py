@@ -1,4 +1,3 @@
-from itertools import izip
 from evdev import ecodes
 from time import time
 
@@ -10,7 +9,7 @@ class cycle(object):
         self.reset()
     def reset(self):
         self.iterable = iter(self.li)
-    def next(self):
+    def __next__(self):
         try:
             return next(self.iterable)
         except StopIteration:
@@ -95,7 +94,7 @@ class SimpleUserInterface(object):
 
     def _roll_screens(self, auto):
         # Cheap way of avoiding infinite loop
-        for screen, _ in izip(self.screen_cycle, self._screens):
+        for screen, _ in zip(self.screen_cycle, self._screens):
             if auto and not screen.auto:
                 continue
             if self._show_screen(screen):
