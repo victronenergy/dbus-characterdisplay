@@ -28,7 +28,7 @@ class Lcd(object):
 
 	# clear lcd and set to home
 	def clear(self):
-		self.write(LCD_CLEARDISPLAY)
+		self.write_string(LCD_CLEARDISPLAY)
 
 	@property
 	def on(self):
