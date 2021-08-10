@@ -18,14 +18,17 @@ class Lcd(object):
 	def write(self, data):
 		os.write(self.lcd, data)
 
+	def write_string(self, str):
+		self.write(str.encode())
+
 	# put string function
 	def display_string(self, string, line):
-		self.write(LCD_XY % (0, line - 1))
-		self.write(string)
+		self.write_string(LCD_XY % (0, line - 1))
+		self.write_string(string)
 
 	# clear lcd and set to home
 	def clear(self):
-		self.write(LCD_CLEARDISPLAY)
+		self.write_string(LCD_CLEARDISPLAY)
 
 	@property
 	def on(self):
@@ -35,10 +38,10 @@ class Lcd(object):
 	def on(self, v):
 		self._backlight_on = bool(v)
 		if v:
-			self.write(LCD_RETURNHOME)
-			self.write(LCD_BACKLIGHT_ON)
+			self.write_string(LCD_RETURNHOME)
+			self.write_string(LCD_BACKLIGHT_ON)
 		else:
-			self.write(LCD_BACKLIGHT_OFF)
+			self.write_string(LCD_BACKLIGHT_OFF)
 
 	@property
 	def daylight(self):
@@ -52,7 +55,11 @@ class Lcd(object):
 		return True
 
 	def splash(self):
-		product = subprocess.check_output(["product-name"]).strip()
+		product = "Unknown model"
+		try:
+			product = subprocess.check_output(["product-name"]).decode("utf8").strip()
+		except OSError:
+			pass
 		self.on = True
 		self.display_string(' Victron Energy ', 1)
 		self.display_string(product.center(16), 2)
@@ -63,8 +70,11 @@ class DebugLcd(Lcd):
 
 	def display_string(self, string, line):
 		if line == 1:
-			print '|' + '-'*16 + '|'
-		print '|' + string + '|'
+			print('|' + '-'*16 + '|')
+		print('|' + string + '|')
+
+	def clear(self):
+		pass
 
 	@property
 	def on(self):

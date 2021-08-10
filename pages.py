@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from itertools import count, izip
+from itertools import count
 from collections import defaultdict
 from cache import smart_dict
 from track import Tracker
@@ -62,7 +62,7 @@ class Page(Tracker):
 	def display(self, conn, lcd):
 		try:
 			text = self.get_text(conn)
-		except Exception, e:
+		except Exception as e:
 			logging.exception("Exception showing page")
 			return False
 
@@ -70,7 +70,7 @@ class Page(Tracker):
 			return False
 
 		# Display text
-		for row in xrange(0, DISPLAY_ROWS):
+		for row in range(0, DISPLAY_ROWS):
 			line = format_line(text[row])
 			lcd.display_string(line, row + 1)
 
@@ -115,7 +115,7 @@ class StatusPage(Page):
 		# displays something
 		if self.cache.state is None:
 			# This should only happen if systemcalc is dead
-			return [["Wait..."], ["", ""]]
+			return [["Wait...", ""], ["", ""]]
 
 		return [[self.format(self.cache.systemname or self.cache.systemtype or "Status"), ""],
 			[self.format(self.states.get(self.cache.state, None) or ""), ""]]
@@ -144,7 +144,7 @@ class ReasonPage(StatusPage):
 			# This should only happen if systemcalc is dead
 			return None
 
-		reasons = ("{:X}".format(reason) for reason, v in izip(count(1), (
+		reasons = ("{:X}".format(reason) for reason, v in zip(count(1), (
 			self.cache.ls, self.cache.bl,
 			self.cache.cd, self.cache.dd, self.cache.sc, self.cache.ucl,
 			self.cache.udl)) if v)
@@ -172,7 +172,7 @@ class VebusAlarmsPage(Page):
 
 	def setup(self, conn, name):
 		if name.startswith("com.victronenergy.vebus."):
-			for phase in xrange(1, 4):
+			for phase in range(1, 4):
 				for alarm in ("HighTemperature", "LowBattery",
 						"Overload", "Ripple"):
 					path = "/Alarms/L{}/{}".format(phase, alarm)
@@ -186,7 +186,7 @@ class VebusAlarmsPage(Page):
 		alarms = []
 		for alarm in ("HighTemperature", "LowBattery",
 					"Overload", "Ripple"):
-			paths = ["/Alarms/L{}/{}".format(phase, alarm) for phase in xrange(1, 4)]
+			paths = ["/Alarms/L{}/{}".format(phase, alarm) for phase in range(1, 4)]
 			if any((self.cache.get(p, None) for p in paths)):
 				alarms.append(alarm)
 

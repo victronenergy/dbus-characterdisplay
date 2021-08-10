@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python3 -u
 
 import sys
 import logging
@@ -10,7 +10,7 @@ import gettext
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from evdev import InputDevice, ecodes
-import gobject
+from gi.repository import GLib
 import lcddriver
 from cache import smart_dict
 from pages import StatusPage, ReasonPage, BatteryPage, SolarPage, SolarHistoryPage, DetailedBatteryPage
@@ -19,12 +19,12 @@ from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarms
 from four_button_ui import FourButtonUserInterface
 from simple_ui import SimpleUserInterface
 
-VERSION = 0.6
-FOUR_BUTTON_DEVICES = ['victronenergy,paygo']
+VERSION = 0.7
+FOUR_BUTTON_DEVICES = [b'victronenergy,paygo']
 
 # Set up i18n
 gettext.install("messages",
-	pathjoin(dirname(abspath(__file__)), "lang"), unicode=True)
+	pathjoin(dirname(abspath(__file__)), "lang"))
 
 _screens = [StatusPage(), ReasonPage(), VebusErrorPage(),
 	VebusAlarmsPage(), AcPage(),
@@ -50,7 +50,7 @@ def main():
 	args = parser.parse_args()
 
 	if args.version:
-		print "{} v{}".format(basename(sys.argv[0]), VERSION)
+		print("{} v{}".format(basename(sys.argv[0]), VERSION))
 		return
 
 	logging.basicConfig(format="%(levelname)s %(message)s", level=logging.INFO)
@@ -110,15 +110,15 @@ def main():
 			ui_handler.key_pressed()
 			return True
 
-		gobject.io_add_watch(kbd.fd, gobject.IO_IN, keypress)
+		GLib.io_add_watch(kbd.fd, GLib.IO_IN, keypress)
 
 	def tick():
 		ui_handler.tick()
 		return True
 
-	gobject.timeout_add(1000, tick)
+	GLib.timeout_add(1000, tick)
 
-	gobject.MainLoop().run()
+	GLib.MainLoop().run()
 
 
 if __name__ == "__main__":
