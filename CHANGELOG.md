@@ -1,5 +1,11 @@
 # Changelog
 
+
+## v1.3 - 2021-05-15
+
+- Add clear message when a token is valid but already used
+
+
 ## v1.2 - 2021-04-20
 
 - Extracted the number entry logic into a separate reusable menu for 4 buttons devices
