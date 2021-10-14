@@ -91,6 +91,11 @@ class PAYGStatusMenu(object):
         return self.payg_service.service_available()
 
     def enter(self, conn, display):
+        self.update(conn, display, None)
+
+    def update(self, conn, display, key_pressed):
+        if key_pressed:
+            return False
         if not self.payg_service.is_payg_enabled():
             display.display_string('Active'.center(16), 1)
             display.display_string('Forever'.center(16), 2)
@@ -102,10 +107,6 @@ class PAYGStatusMenu(object):
         else:
             display.display_string('Not Active'.center(16), 1)
             display.display_string('Please Activate'.center(16), 2)
-
-    def update(self, conn, display, key_pressed):
-        if key_pressed:
-            return False
         return True
 
 
