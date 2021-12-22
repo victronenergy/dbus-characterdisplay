@@ -95,7 +95,8 @@ def main():
 	# Keyboard handling
 	try:
 		kbd = InputDevice("/dev/input/by-path/platform-disp_keys-event")
-	except OSError:
+		kbd.grab()
+	except (OSError, IOError):
 		kbd = None
 
 	if has_four_buttons:
