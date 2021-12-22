@@ -19,7 +19,7 @@ from pages import LanPage, WlanPage, VebusErrorPage, SolarErrorPage, VebusAlarms
 from four_button_ui import FourButtonUserInterface
 from simple_ui import SimpleUserInterface
 
-VERSION = 0.9
+VERSION = 0.10
 FOUR_BUTTON_DEVICES = [b'victronenergy,paygo']
 
 # Set up i18n
