@@ -88,7 +88,8 @@ def main():
 	# Keyboard handling
 	try:
 		kbd = InputDevice("/dev/input/by-path/platform-disp_keys-event")
-	except OSError:
+		kbd.grab()
+	except (OSError, IOError):
 		kbd = None
 
 	has_four_buttons = subprocess.check_output(["/usr/bin/board-compat"]).strip() in FOUR_BUTTON_DEVICES
