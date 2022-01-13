@@ -373,7 +373,7 @@ class SolarHistoryPage(Page):
 		return text
 
 class AcPage(Page):
-	sources = ["", "Grid", "Genset", "Shore"]
+	sources = ["AC-in", "Grid", "Genset", "Shore"]
 
 	def __init__(self):
 		super(AcPage, self).__init__()
