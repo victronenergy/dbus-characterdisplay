@@ -13,7 +13,7 @@ LCD_BACKLIGHT_OFF = '\033[L-'
 PWM_BACKLIGHT = '/sys/class/backlight/gxdisp-0-0051'
 PWM_BRIGHTNESS_ON = 15
 PWM_BRIGHTNESS_OFF = 1
-ADC_DAYLIGHT = 5000
+ADC_DAYLIGHT = 200
 
 class Lcd(object):
 	#initializes objects and lcd
