@@ -54,6 +54,21 @@ class Tracker(object):
 			bus_name=service
 		)))
 
+		# ItemsChanged
+		def update_items(items):
+			try:
+				self.update_cache(callback, target, items[path])
+			except (TypeError, KeyError):
+				pass
+
+		self.watches[service].append((target, conn.add_signal_receiver(
+			update_items,
+			dbus_interface='com.victronenergy.BusItem',
+			signal_name='ItemsChanged',
+			path='/',
+			bus_name=service
+		)))
+
 	def cleanup(self, name):
 		if name in self.watches:
 			for target, w in self.watches[name]:
