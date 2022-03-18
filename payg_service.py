@@ -58,7 +58,7 @@ class PAYGService(object):
         return days_left, hours_left
 
     def update_device_status_if_code_valid(self, token):
-        self._dbus_write(self.SERVICE_NAME, "/Tokens/Last", token)
+        self._dbus_write(self.SERVICE_NAME, "/Tokens/SetToken", token)
         token_valid = self.tracker.query(self.conn, self.SERVICE_NAME, "/Tokens/LastTokenValid")
         return token_valid
 
