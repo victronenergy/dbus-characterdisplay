@@ -93,7 +93,7 @@ class Lcd(object):
 		    light is detected. """
 		try:
 			return open(
-				'/dev/gpio/display_sensor/value', 'rb').read().strip() == '0'
+				'/dev/gpio/display_sensor/value', 'rb').read().strip() == b'0'
 		except IOError:
 			pass
 		return True
