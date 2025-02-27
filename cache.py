@@ -1,4 +1,4 @@
-from collections import Mapping
+from collections.abc import Mapping
 
 class smart_dict(dict):
 	# Dictionary that can be accessed via attributes.
